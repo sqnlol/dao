@@ -1,0 +1,11 @@
+# Pliki bazy danych SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Foldery cache Pythona
+__pycache__/
+
+# Foldery środowisk wirtualnych
+venv/
+.venv/
