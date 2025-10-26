@@ -1,0 +1,20 @@
+# Wygenerowane przez Pythona
+__pycache__/
+*.pyc
+
+# Środowisko wirtualne
+.venv/
+venv/
+env/
+
+# Baza danych
+steam_market.db
+*.sqlite
+*.db
+
+# Logi/Pliki tymczasowe
+*.log
+.DS_Store # Pliki macOS
+
+# Specyficzne dla VS Code
+.vscode/

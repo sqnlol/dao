@@ -1,4 +1,2 @@
 requests
-pandas
-matplotlib
-tk
+requests-oauthlib

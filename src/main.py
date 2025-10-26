@@ -1,20 +1,19 @@
 import tkinter as tk
-from gui import MarketApp
+from .gui.app import MarketApp
+from . import database
 
 if __name__ == "__main__":
-    # Sprawdź, czy masz zainstalowaną bibliotekę requests
     try:
+        # Sprawdzamy wymagane biblioteki
         import requests
+        import requests_oauthlib 
     except ImportError:
-        print("BŁĄD: Nie znaleziono biblioteki 'requests'.")
-        print("Zainstaluj ją używając polecenia: pip install requests")
+        print("BŁĄD: Wymagane biblioteki (requests i requests-oauthlib) nie są zainstalowane.")
+        print("Zainstaluj je używając polecenia: pip install -r requirements.txt")
         exit()
+        
+    database.init_db()
 
-    # Utwórz główne okno aplikacji
     root = tk.Tk()
-    
-    # Utwórz instancję naszej aplikacji, przekazując jej główne okno
     app = MarketApp(root)
-    
-    # Uruchom główną pętlę zdarzeń tkinter
     root.mainloop()
