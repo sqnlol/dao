@@ -111,11 +111,19 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 
 ### CS2 Skin Analyzer v0.2 (Tydzień 2):
 
+#### Ekran Logowania
+
 ![gui_login_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_login_v0.2.png?raw=true)
+
+#### Ekran Wyszukiwania
 
 ![gui_search_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_search_v0.2.png?raw=true)
 
+#### Ekran Wyników (schowane dane historyczne)
+
 ![gui_result1_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_result1_v0.2.png?raw=true)
+
+#### Ekran Wyników (widoczne dane historyczne)
 
 ![gui_result2_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_result2_v0.2.png?raw=true)
 
