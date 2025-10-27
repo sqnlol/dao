@@ -1,4 +1,4 @@
-# CS2 Skin Analyzer 📊
+# CS2 Skin Analyzer 
 
 ## Krótki Opis Projektu
 
@@ -14,10 +14,11 @@ Aplikacja wymaga od użytkownika podania kluczowego pliku **cookie sesji Steam**
 
 ***
 
-## Struktura Plików 📂
+## Struktura Plików 
 
 Projekt jest zorganizowany modularnie, oddzielając logikę GUI (Views), Kontroler oraz warstwy dostępu do Danych (API i Baza Danych).
 
+```
 CS2 Skin Analyzer/
 ├── src/ 
 │ ├── gui/ 
@@ -32,10 +33,11 @@ CS2 Skin Analyzer/
 ├── .gitignore # Plik ignorowanych plików dla Git (m.in. steam_market.db) 
 ├── requirements.txt # Wymagane zależności Pythona (np. requests) 
 └── README.md # Dokumentacja projektu
+```
 
 ***
 
-## Dokumentacja Techniczna 🛠️
+## Dokumentacja Techniczna 
 
 ### Główne Pliki i Role
 
@@ -107,7 +109,7 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 
 ***
 
-## Historia Zmian (Changelog) 📜
+## Historia Zmian (Changelog) 
 
 ### Tydzień 1: Inicjalizacja i Prototypowanie
 
