@@ -208,14 +208,16 @@ def fetch_all_csgo_items(appid=APPID):
 # ------------------------------------------------------------------
 # POBIERANIE AKTUALNYCH OFERT (LISTINGS) - ZMODYFIKOWANE
 # ------------------------------------------------------------------
-def get_market_listings(market_hash_name, login_cookie, count):
+def get_market_listings(market_hash_name, count):
     """
     Pobiera aktualne, najtańsze oferty sprzedaży dla przedmiotu.
 
+    UWAGA: Ten endpoint często nie wymaga cookie 'steamLoginSecure'.
+           Używa się go głównie do pobrania listy ofert i najwyższego zlecenia kupna.
+
     Args:
         market_hash_name (str): Pełna nazwa przedmiotu (market_hash_name).
-        login_cookie (str): Cookie uwierzytelniające 'steamLoginSecure'.
-        count (int): Liczba ofert do pobrania.
+        count (int): Liczba ofert do pobrania. Maksymalnie 100.
 
     Returns:
         dict: Słownik zawierający 'listings' (lista ofert), 'total_count',
@@ -223,60 +225,70 @@ def get_market_listings(market_hash_name, login_cookie, count):
               (najwyższe zlecenie kupna), lub None w przypadku błędu.
     """
 
-    # 🛑 Zmiana: Ręczne kodowanie nazwy przedmiotu dla całego URL
+    # Nazwa przedmiotu musi być zakodowana na potrzeby URL
     encoded_market_hash_name = urllib.parse.quote(market_hash_name)
-
-    # Parametry są teraz puste, bo są już w URL
+    
+    # Adres URL do pobierania ofert
+    full_url = f"https://steamcommunity.com/market/listings/{APPID}/{encoded_market_hash_name}/render/"
+    
     params = {
         'query': '',
         'start': 0,
-        'count': {count},
-        'country': 'PL',
-        'language': 'polish',
-        'currency': 6
+        'count': count,
+        'country': 'PL',      # Ważne: Wpływa na walutę
+        'language': 'polish', # Ważne: Wpływa na wyświetlanie cen/tekstów
+        'currency': 6         # 6 = PLN (Polski Złoty)
     }
 
-    # Dodanie nagłówka z cookie
+    # Wymagany User-Agent do ominięcia blokady (403/429)
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
-        'Cookie': f'steamLoginSecure={login_cookie}'
     }
 
-    full_url = f"https://steamcommunity.com/market/listings/{APPID}/{encoded_market_hash_name}/render/"
     try:
         response = requests.get(full_url, params=params, headers=headers, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        print(f"DEBUG: Pełny URL zapytania o oferty: {response.request.url}", file=sys.stderr)
+        response.raise_for_status() # Wyrzuci wyjątek dla statusów 4xx/5xx
 
         if response.status_code == 429:
-            print("BŁĄD: Zostałeś tymczasowo zablokowany przez Steam (Rate Limit - 429).")
-            print("Odczekaj kilka minut przed kolejną próbą.")
+            print("BŁĄD: Zostałeś tymczasowo zablokowany przez Steam (Rate Limit - 429).", file=sys.stderr)
             return None
+
+        data = response.json()
 
         if data.get('success') != True:
             print(f"Błąd API: Sukces = False przy pobieraniu ofert dla: {market_hash_name}", file=sys.stderr)
             return None
 
         listings = []
-        if data.get('listings'):
-            for listing_id, listing_data in data['listings'].items():
-                converted_price = listing_data.get('converted_price')
-                final_price = listing_data.get('converted_price_with_fee')
-                final_price_float = final_price / 100.0 if final_price is not None else None
-                fee_float = (final_price - converted_price) / 100.0 if final_price and converted_price is not None else None
+        # 🛑 KOREKTA: Oferty znajdują się w 'listinginfo'
+        listing_info = data.get('listinginfo', {})
+        
+        if listing_info:
+            for listing_id, listing_data in listing_info.items():
+                
+                # Ceny są w groszach/centach (integer)
+                converted_price = listing_data.get('converted_price') # Cena dla sprzedawcy
+                converted_fee = listing_data.get('converted_fee')     # Opłata Steam/Valve
+                
+                # Całkowita cena dla kupującego (w groszach/centach)
+                total_price_integer = converted_price + converted_fee
+                # Konwersja na float (PLN/USD)
+                total_price_float = total_price_integer / 100.0
 
                 listings.append({
                     'listing_id': listing_id,
-                    'price_float': final_price_float,
-                    'price_str': listing_data.get('converted_price_per_unit', 'N/A'),
-                    'fee': fee_float,
+                    'price_float': total_price_float,
+                    'price_str': f"{total_price_float:.2f} PLN", # Przykładowy format
+                    'fee': converted_fee / 100.0 if converted_fee is not None else None,
                     'steam_id_lister': listing_data.get('steamid_lister')
                 })
-
+        
+        # Inne dane o rynku
+        # 🛑 KOREKTA: Najniższa cena i najwyższe zlecenie kupna
+        # Te klucze są w głównym słowniku odpowiedzi
         lowest_price_str = data.get('lowest_price')
         highest_buy_order_str = data.get('highest_buy_order')
-
+        
         return {
             'listings': listings,
             'total_count': data.get('total_count', 0),

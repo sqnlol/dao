@@ -18,7 +18,7 @@ class MarketApp:
         self.root = root
         self.root.title("CS2 Skin Analyzer")
         self.root.geometry("850x650") 
-        self.root.minsize(width=650, height=500) 
+        self.root.minsize(width=800, height=600) 
 
         # Dane sesyjne
         self.steam_id = None

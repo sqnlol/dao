@@ -176,7 +176,7 @@ class SearchView:
         # 2. Pobieranie aktualnych ofert (Listings)
         try:
             # 🛑 Przekazujemy login_cookie do get_market_listings
-            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=15)
+            listings_data = steam_market.get_market_listings(item_name, count=10)
             if listings_data is None:
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
                 listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}

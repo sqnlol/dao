@@ -103,18 +103,20 @@ class ResultsView:
     def _create_history_treeview(self, parent_frame):
         """Tworzy widżet Treeview dla danych historycznych."""
         
-        columns = ("Data", "Cena", "Market Hash Name", "Typ Jakości")
+        columns = ("Typ", "Jakość", "Skórka", "Cena", "Data")
         tree = ttk.Treeview(parent_frame, columns=columns, show='headings', height=10)
         
-        tree.column("Data", width=150, anchor=tk.W)
+        tree.column("Typ", width=80, anchor=tk.W)
+        tree.column("Jakość", width=100, anchor=tk.W)
+        tree.column("Skórka", width=250, anchor=tk.W)
         tree.column("Cena", width=100, anchor=tk.E)
-        tree.column("Market Hash Name", width=250, anchor=tk.W)
-        tree.column("Typ Jakości", width=120, anchor=tk.W)
+        tree.column("Data", width=150, anchor=tk.W)
 
-        tree.heading("Data", text="Data Sprzedaży")
+        tree.heading("Typ", text="Typ")
+        tree.heading("Jakość", text="Jakość")
+        tree.heading("Skórka", text="Nazwa skórki")
         tree.heading("Cena", text="Cena Sprzedaży")
-        tree.heading("Market Hash Name", text="Nazwa Rynkowa")
-        tree.heading("Typ Jakości", text="Typ / Jakość")
+        tree.heading("Data", text="Data Sprzedaży")
         
         return tree
         
@@ -136,14 +138,8 @@ class ResultsView:
             if self.listings_data.get('highest_buy_order'):
                 ttk.Label(info_frame, text=f"Najwyższe zlecenie kupna (Buy Order): {self.listings_data['highest_buy_order']}").pack(fill='x')
             return
-
-        # Podsumowanie cen
-        lowest_price_str = self.listings_data.get('lowest_price')
-        highest_buy_str = self.listings_data.get('highest_buy_order')
         
-        ttk.Label(info_frame, text=f"Liczba ofert: {total_count}. Najniższa cena rynkowa: {lowest_price_str}").pack(anchor='w')
-        if highest_buy_str:
-            ttk.Label(info_frame, text=f"Najwyższe zlecenie kupna: {highest_buy_str}").pack(anchor='w')
+        ttk.Label(info_frame, text=f"Liczba ofert: {total_count}.").pack(anchor='w')
             
         ttk.Separator(self.listings_section, orient='horizontal').pack(fill='x', padx=5, pady=2)
 
@@ -170,7 +166,7 @@ class ResultsView:
             
             # Cena może być None, jeśli API zwróciło niepełne dane
             price_text = f"{price:.2f} PLN" if price is not None else "N/A"
-            fee_text = f"{fee:.2f}" if fee is not None else "N/A"
+            fee_text = f"{fee:.2f} PLN" if fee is not None else "N/A"
             
             ttk.Label(listings_frame, text=price_text, anchor='e', foreground='green').grid(row=row_num, column=1, padx=5, sticky='e')
             ttk.Label(listings_frame, text=fee_text, anchor='e').grid(row=row_num, column=2, padx=5, sticky='e')
@@ -190,7 +186,7 @@ class ResultsView:
         """Zwiększa limit wyświetlanych ofert (zakładając, że dane są już załadowane)."""
         
         # Zwiększamy limit wyświetlania
-        self.current_listing_display_limit += 15
+        self.current_listing_display_limit += 10
         
         # W realistycznej aplikacji, tutaj byłoby zapytanie do API o kolejne 15 ofert
         # W tej implementacji zakładamy, że tylko zwiększamy widoczność, dopóki lista się nie skończy.
@@ -245,10 +241,11 @@ class ResultsView:
         # Wypełnij nowymi danymi
         for record in self.history_data:
             self.history_tree.insert("", tk.END, values=(
-                record['sale_date_str'],
-                f"{record['price']:.2f}",
+                f"{record['item_type']}",
+                record['item_wear'] or 'Brak',
                 record['market_hash_name'],
-                f"{record['item_type']} / {record['item_wear'] or 'Brak'}"
+                f"{record['price']:.2f}",
+                record['sale_date_str']
             ))
             
         # Wymuś aktualizację przewijania
