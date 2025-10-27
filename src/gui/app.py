@@ -6,10 +6,10 @@ import os
 import threading 
 
 # Import widoków z tego samego pakietu
-from .login_view import LoginView
-from .search_view import SearchView
-from .results_view import ResultsView
-from ..steam_market import fetch_all_csgo_items 
+from gui.login_view import LoginView
+from gui.search_view import SearchView
+from gui.results_view import ResultsView
+import steam_market
 
 SUGGESTIONS_FILE = "src/suggestions.txt"
 
@@ -34,10 +34,10 @@ class MarketApp:
         self.views = {}
         self.current_view = None
         
+        self._initialize_views()
+
         # Wczytanie/Pobranie sugestii
         self._load_or_fetch_suggestions() 
-        
-        self._initialize_views()
         
         # --- Start aplikacji ---
         self.switch_view("login")
@@ -100,7 +100,7 @@ class MarketApp:
 
     def _run_suggestion_fetch(self):
         """Logika wątku roboczego do pobierania i zapisywania sugestii."""
-        suggestions = fetch_all_csgo_items()
+        suggestions = steam_market.fetch_all_csgo_items()
         
         if suggestions:
             self.all_suggestions = suggestions

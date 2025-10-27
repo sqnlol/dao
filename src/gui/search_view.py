@@ -6,8 +6,8 @@ import sys
 import time # 🛑 Dodany import time
 
 # Importy z głównego katalogu (za pomocą importu względnego)
-from ..steam_market import get_price_history, parse_market_name, get_market_listings 
-from .. import database
+import steam_market
+import database
 
 
 class SearchView:
@@ -155,7 +155,7 @@ class SearchView:
         
         # 1. Pobieranie historii cen
         try:
-            history = get_price_history(item_name, login_cookie)
+            history = steam_market.get_price_history(item_name, login_cookie)
             if history is None: 
                 self.controller.result_queue.put({'status': 'error', 'message': 'Błąd API podczas pobierania historii. Sprawdź konsolę.'})
                 return
@@ -176,7 +176,7 @@ class SearchView:
         # 2. Pobieranie aktualnych ofert (Listings)
         try:
             # 🛑 Przekazujemy login_cookie do get_market_listings
-            listings_data = get_market_listings(item_name, login_cookie, count=15)
+            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=15)
             if listings_data is None:
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
                 listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}
@@ -190,7 +190,7 @@ class SearchView:
 
         # 3. Zapisywanie i przekazywanie danych
         try:
-            parsed_name_parts = parse_market_name(item_name)
+            parsed_name_parts = steam_market.parse_market_name(item_name)
 
             records_to_save = []
             for entry in history:

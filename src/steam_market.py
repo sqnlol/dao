@@ -4,6 +4,7 @@ import json
 import time
 from datetime import datetime
 import sys
+import urllib.parse
 
 # Stałe
 APPID = 730 # CS2/CS:GO
@@ -207,7 +208,7 @@ def fetch_all_csgo_items(appid=APPID):
 # ------------------------------------------------------------------
 # POBIERANIE AKTUALNYCH OFERT (LISTINGS) - ZMODYFIKOWANE
 # ------------------------------------------------------------------
-def get_market_listings(market_hash_name, login_cookie, count=15):
+def get_market_listings(market_hash_name, login_cookie, count):
     """
     Pobiera aktualne, najtańsze oferty sprzedaży dla przedmiotu.
 
@@ -223,31 +224,35 @@ def get_market_listings(market_hash_name, login_cookie, count=15):
     """
 
     # 🛑 Zmiana: Ręczne kodowanie nazwy przedmiotu dla całego URL
-    encoded_market_hash_name = requests.utils.quote(market_hash_name)
-
-    # 🛑 Zmiana: Budowanie całego URL ręcznie, włączając parametry
-    full_url = (
-        f"https://steamcommunity.com/market/listings/{APPID}/{encoded_market_hash_name}/render/"
-        f"?start=0&count={count}&currency=1&language=polish&appid={APPID}"
-        f"&market_hash_name={encoded_market_hash_name}&query="
-    )
+    encoded_market_hash_name = urllib.parse.quote(market_hash_name)
 
     # Parametry są teraz puste, bo są już w URL
-    params = {}
+    params = {
+        'query': '',
+        'start': 0,
+        'count': {count},
+        'country': 'PL',
+        'language': 'polish',
+        'currency': 6
+    }
 
     # Dodanie nagłówka z cookie
-    headers = {}
-    if login_cookie:
-        headers['Cookie'] = f'steamLoginSecure={login_cookie}'
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36',
+        'Cookie': f'steamLoginSecure={login_cookie}'
+    }
 
+    full_url = f"https://steamcommunity.com/market/listings/{APPID}/{encoded_market_hash_name}/render/"
     try:
-        # Wyświetlamy ręcznie zbudowany URL
-        print(f"DEBUG: Pełny URL zapytania o oferty: {full_url}", file=sys.stderr)
-
-        # 🛑 Zmiana: Używamy full_url i pustego params
-        response = requests.get(full_url, params=params, headers=headers, timeout=10)
+        response = requests.get(full_url, params=params, headers=headers, timeout=30)
         response.raise_for_status()
         data = response.json()
+        print(f"DEBUG: Pełny URL zapytania o oferty: {response.request.url}", file=sys.stderr)
+
+        if response.status_code == 429:
+            print("BŁĄD: Zostałeś tymczasowo zablokowany przez Steam (Rate Limit - 429).")
+            print("Odczekaj kilka minut przed kolejną próbą.")
+            return None
 
         if data.get('success') != True:
             print(f"Błąd API: Sukces = False przy pobieraniu ofert dla: {market_hash_name}", file=sys.stderr)
