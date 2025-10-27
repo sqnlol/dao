@@ -6,11 +6,9 @@
 
 Głównym celem projektu jest dostarczenie użytkownikowi narzędzia, które:
 1.  Pobiera **aktualne oferty sprzedaży** z Rynku Społeczności Steam.
-2.  Pobiera **historyczne dane cenowe** (transakcje sprzedaży) danego przedmiotu.
-3.  Przechowuje historię cen w **lokalnej bazie danych SQLite** (persystencja danych).
-4.  Analizuje dane, wyświetlając 10 najtańszych aktualnych ofert oraz historyczne minimum i maksimum ceny przedmiotu.
-
-Aplikacja wymaga od użytkownika podania kluczowego pliku **cookie sesji Steam** (`steamLoginSecure`), aby uzyskać nieograniczony dostęp do API historii cen, co jest niezbędne do pełnej funkcjonalności.
+2.  Pobiera **historyczne dane cenowe** danego przedmiotu.
+3.  Przechowuje dane w **lokalnej bazie danych SQLite**.
+4.  Analizuje na ich podstawie trendy cenowe.
 
 ***
 
@@ -111,7 +109,34 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 
 ## Historia Zmian (Changelog) 
 
-### Tydzień 1: Inicjalizacja i Prototypowanie
+### CS2 Skin Analyzer v0.2 (Tydzień 2):
+
+![gui_login_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_login_v0.2.png?raw=true)
+
+![gui_search_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_search_v0.2.png?raw=true)
+
+![gui_result1_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_result1_v0.2.png?raw=true)
+
+![gui_result2_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_result2_v0.2.png?raw=true)
+
+| Data | Opis Zmiany / Działania | Status |
+| :--- | :--- | :--- |
+| **Zależności** | Dodano plik `requirements.txt` do zarządzania zależnościami. | Ukończono |
+| **Kontrola Wersji** | Dodano plik `.gitignore` (ignorowanie plików binarnych i bazy danych `steam_market.db`). | Ukończono |
+| **Architektura Danych** | **Kluczowa zmiana**: Wprowadzenie konieczności podawania cookie `steamLoginSecure` w celu ominięcia blokad API i dostępu do pełnej historii cen. | Ukończono |
+| **Widok 1: Logowanie** | Stworzenie ekranu `LoginView.py` do wprowadzania wymaganego klucza cookie. | Ukończono |
+| **Logowanie** | Dodanie logowania poprzez Steam, aby każdy użytkownik korzystał ze swojego własnego cookie | W planach |
+| **Widok 2: Wyszukiwanie** | Stworzenie ekranu `SearchView.py` z pełnym zestawem filtrów: wybór jakości przedmiotu oraz checkbox na StatTrak™. | Ukończono |
+| **Autouzupełnianie** | Dodanie autouzupełniania nazw skórek po wpisaniu pasujących nazw. | W toku |
+| **Logowanie** | Dodano tymczasowe okno konsolowe/logi do `SearchView` informujące o statusie operacji (pobieranie, zapis, błędy). | Ukończono |
+| **Widok 3: Wyniki** | Stworzenie ekranu `ResultsView.py` wyświetlającego: 10 najtańszych aktualnych ofert, historyczne min/max ceny, oraz rozwijaną tabelę historycznych danych ze steamcommunity.com/market/pricehistory/. | Ukończono |
+| **Sortowanie tabel** | Dodanie możliwości sortowania rekordów w zależności od Daty lub Ceny sprzedaży | W planach |
+| **Nawigacja** | Dodano przycisk powrotu z ekranu wyników do wyszukiwarki. | Ukończono |
+| **Baza Danych** | Wdrożenie `database.py` i SQLite do **agregowania i przechowywania** pobranych rekordów sprzedaży, z unikalnym kluczem złożonym, zapobiegającym duplikatom. | Ukończono |
+
+### CS Skin Analyzer v0.1 (Tydzień 1)
+
+![gui_v0.1](https://github.com/sqnlol/dao/tree/main/src/img/gui_v0.1.png?raw=true)
 
 | Data | Opis Zmiany / Działania | Status |
 | :--- | :--- | :--- |
@@ -123,17 +148,3 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 | **Współpraca** | Integracja kodu z systemem kontroli wersji GitHub. | Ukończono |
 | **Wyzwania API** | Stwierdzenie problemów z pobieraniem danych z API Steam (blokowanie zapytań bez nagłówków przeglądarki/cookie). | Napotkano |
 | **Alternatywy** | Początkowe próby pracy z zewnętrznymi API (porzucone na rzecz bezpośredniego dostępu Steam). | W toku |
-
-### Tydzień 2: Architektura Modularna, Persystencja i Pełne GUI
-
-| Data | Opis Zmiany / Działania | Status |
-| :--- | :--- | :--- |
-| **Zależności** | Dodano plik `requirements.txt` do zarządzania zależnościami. | Ukończono |
-| **Kontrola Wersji** | Dodano plik `.gitignore` (ignorowanie plików binarnych i bazy danych `steam_market.db`). | Ukończono |
-| **Architektura Danych** | **Kluczowa zmiana**: Wprowadzenie konieczności podawania cookie `steamLoginSecure` w celu ominięcia blokad API i dostępu do pełnej historii cen. | Ukończono |
-| **Widok 1: Logowanie** | Stworzenie ekranu `LoginView.py` do wprowadzania wymaganego klucza cookie. | Ukończono |
-| **Widok 2: Wyszukiwanie** | Stworzenie ekranu `SearchView.py` z pełnym zestawem filtrów: wybór jakości przedmiotu oraz checkbox na StatTrak™. | Ukończono |
-| **Logowanie** | Dodano tymczasowe okno konsolowe/logi do `SearchView` informujące o statusie operacji (pobieranie, zapis, błędy). | Ukończono |
-| **Widok 3: Wyniki** | Stworzenie ekranu `ResultsView.py` wyświetlającego: 10 najtańszych aktualnych ofert, historyczne min/max ceny, oraz rozwijaną tabelę historycznych danych ze steamcommunity.com/market/pricehistory/. | Ukończono |
-| **Nawigacja** | Dodano przycisk powrotu z ekranu wyników do wyszukiwarki. | Ukończono |
-| **Baza Danych** | Wdrożenie `database.py` i SQLite do **agregowania i przechowywania** pobranych rekordów sprzedaży, z unikalnym kluczem złożonym, zapobiegającym duplikatom. | Ukończono |
