@@ -111,13 +111,13 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 
 ### CS2 Skin Analyzer v0.2 (Tydzień 2):
 
-![gui_login_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_login_v0.2.png?raw=true)
+![gui_login_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_login_v0.2.png?raw=true)
 
-![gui_search_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_search_v0.2.png?raw=true)
+![gui_search_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_search_v0.2.png?raw=true)
 
-![gui_result1_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_result1_v0.2.png?raw=true)
+![gui_result1_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_result1_v0.2.png?raw=true)
 
-![gui_result2_v0.2](https://github.com/sqnlol/dao/tree/main/src/img/gui_result2_v0.2.png?raw=true)
+![gui_result2_v0.2](https://github.com/sqnlol/dao/blob/main/src/img/gui_result2_v0.2.png?raw=true)
 
 | Data | Opis Zmiany / Działania | Status |
 | :--- | :--- | :--- |
@@ -136,7 +136,7 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 
 ### CS Skin Analyzer v0.1 (Tydzień 1)
 
-![gui_v0.1](https://github.com/sqnlol/dao/tree/main/src/img/gui_v0.1.png?raw=true)
+![gui_v0.1](https://github.com/sqnlol/dao/blob/main/src/img/gui_v0.1.png?raw=true)
 
 | Data | Opis Zmiany / Działania | Status |
 | :--- | :--- | :--- |
