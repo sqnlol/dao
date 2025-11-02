@@ -5,11 +5,13 @@ import sys
 import os 
 import threading 
 
-# Import widoków z tego samego pakietu
-from gui.login_view import LoginView
-from gui.search_view import SearchView
-from gui.results_view import ResultsView
-import steam_market
+# --- POPRAWIONE IMPORTY ---
+# Musimy odwoływać się z poziomu 'src'
+from src.gui.login_view import LoginView
+from src.gui.search_view import SearchView
+from src.gui.results_view import ResultsView
+from src import steam_market
+# --- KONIEC POPRAWEK ---
 
 SUGGESTIONS_FILE = "src/suggestions.txt"
 
@@ -68,7 +70,6 @@ class MarketApp:
             self.views["search"].update_welcome_label()
             
         elif view_name == "results":
-            # 🛑 Zmiana: Poprawne przekazywanie danych do show_results
             if 'item_name' in kwargs and 'history_data' in kwargs and 'listings_data' in kwargs:
                  self.views["results"].show_results(kwargs['item_name'], kwargs['history_data'], kwargs['listings_data'])
             
@@ -100,15 +101,17 @@ class MarketApp:
 
     def _run_suggestion_fetch(self):
         """Logika wątku roboczego do pobierania i zapisywania sugestii."""
+        
+        # --- POPRAWIONY IMPORT ---
+        # Używamy poprawnej ścieżki do modułu
         suggestions = steam_market.fetch_all_csgo_items()
+        # --- KONIEC POPRAWKI ---
         
         if suggestions:
             self.all_suggestions = suggestions
             
             # Zapis do pliku
             try:
-                # Używamy os.path.join, aby upewnić się, że ścieżka jest poprawna
-                # Tworzymy katalog "src" jeśli nie istnieje
                 os.makedirs(os.path.dirname(SUGGESTIONS_FILE) or '.', exist_ok=True)
                 with open(SUGGESTIONS_FILE, 'w', encoding='utf-8') as f:
                     for item in suggestions:
@@ -117,7 +120,6 @@ class MarketApp:
             except Exception as e:
                 print(f"BŁĄD zapisu listy sugestii do pliku: {e}", file=sys.stderr)
                 
-            # Powiadamiamy widok wyszukiwania, że dane są gotowe
             self.root.after(0, lambda: self._notify_search_view_suggestions_ready())
             
         else:
@@ -154,7 +156,6 @@ class MarketApp:
                     self.views["search"].log_message("Pobieranie i zapisywanie zakończone pomyślnie.")
                     self.views["search"].search_button.config(state='normal')
                 
-                # 🛑 Zmiana: Przekazujemy oba zestawy danych
                 self.switch_view(
                     "results", 
                     item_name=result['item_name'], 

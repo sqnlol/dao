@@ -3,11 +3,11 @@ from tkinter import ttk
 from tkinter import scrolledtext
 import threading
 import sys 
-import time # 🛑 Dodany import time
+import time 
 
-# Importy z głównego katalogu (za pomocą importu względnego)
-import steam_market
-import database
+from src import steam_market
+from src import database
+from src.skin_list import SKIN_DATA
 
 
 class SearchView:
@@ -20,11 +20,6 @@ class SearchView:
         self.frame.grid_rowconfigure(3, weight=1) 
         self.frame.grid_columnconfigure(0, weight=1) 
 
-        self.item_name_var = tk.StringVar() 
-        
-        # Lokalna, filtrowana lista sugestii
-        self.suggestions_list = [] 
-        
         self._create_widgets()
         
     def _create_widgets(self):
@@ -43,101 +38,92 @@ class SearchView:
         input_frame = ttk.Frame(self.frame)
         input_frame.grid(row=2, column=0, sticky='ew', pady=(5, 10))
         
-        input_frame.grid_columnconfigure(2, weight=1) 
-
-        col = 0
+        input_frame.grid_columnconfigure(1, weight=1)
+        input_frame.grid_columnconfigure(3, weight=1)
+        
         self.stattrack_var = tk.BooleanVar()
         self.stattrack_check = ttk.Checkbutton(input_frame, text="StatTrak™", variable=self.stattrack_var, onvalue=True, offvalue=False)
-        self.stattrack_check.grid(row=0, column=col, padx=(0, 10), sticky='w'); col+=1
+        self.stattrack_check.grid(row=0, column=0, padx=(0, 10), pady=5, sticky='w')
 
-        ttk.Label(input_frame, text="Nazwa:").grid(row=0, column=col, padx=(0, 5), sticky='w'); col+=1
-        
-        self.item_combobox = ttk.Combobox(input_frame, textvariable=self.item_name_var)
-        self.item_combobox.grid(row=0, column=col, sticky='ew', padx=5); col+=1
-        self.item_combobox.set("AK-47 | Asiimov") 
-        
-        self.item_combobox.bind('<KeyRelease>', self.autocomplete)
-
-
-        ttk.Label(input_frame, text="Jakość:").grid(row=0, column=col, padx=(5, 5), sticky='w'); col+=1
-        self.wear_options = ["Brak", "(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)"]
+        ttk.Label(input_frame, text="Jakość:").grid(row=0, column=2, padx=(10, 5), pady=5, sticky='w')
+        self.wear_options = ["(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)", "Brak"]
         self.wear_combobox = ttk.Combobox(input_frame, values=self.wear_options, width=18, state='readonly')
-        self.wear_combobox.grid(row=0, column=col, sticky='e'); col+=1
-        self.wear_combobox.current(3) 
+        self.wear_combobox.grid(row=0, column=3, sticky='ew', pady=5)
+        self.wear_combobox.set("(Field-Tested)")
+
+        ttk.Label(input_frame, text="Typ broni:").grid(row=1, column=0, padx=(0, 10), pady=5, sticky='w')
+        weapon_list = sorted(list(SKIN_DATA.keys()))
+        self.weapon_combo = ttk.Combobox(input_frame, values=weapon_list, state='readonly')
+        self.weapon_combo.grid(row=1, column=1, sticky='ew', pady=5)
+        self.weapon_combo.set("AK-47")
+
+        ttk.Label(input_frame, text="Skin:").grid(row=1, column=2, padx=(10, 5), pady=5, sticky='w')
+        self.skin_combo = ttk.Combobox(input_frame, state='disabled')
+        self.skin_combo.grid(row=1, column=3, sticky='ew', pady=5)
 
         self.search_button = ttk.Button(input_frame, text="Pobierz i zapisz", command=self.start_search_thread, state='normal')
-        self.search_button.grid(row=0, column=col, padx=(5, 0), sticky='e'); col+=1
+        self.search_button.grid(row=0, column=4, rowspan=2, padx=(10, 0), sticky='nsew')
+        
+        self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
 
         self.status_text = scrolledtext.ScrolledText(self.frame, wrap=tk.WORD, state='disabled', height=10)
         self.status_text.grid(row=3, column=0, sticky='nsew', pady=(10, 0))
         
-        # Logowanie statusu ładowania sugestii
         if not self.controller.all_suggestions:
-            self.log_message("Trwa pobieranie pełnej listy przedmiotów z API Steam. Może to chwilę potrwać (1-2 minuty)...")
-        else:
-            self.set_suggestions(self.controller.all_suggestions)
-            self.log_message(f"Autouzupełnianie gotowe ({len(self.suggestions_list)} przedmiotów). Gotowy do wyszukiwania.")
-
-
-    # ------------------------------------------------------------------
-    # METODY AUTOUZUPEŁNIANIA I KOMUNIKACJI
-    # ------------------------------------------------------------------
-    def autocomplete(self, event):
-        """Filtruje lokalną listę sugestii na podstawie tekstu w polu."""
+            self.log_message("Gotowy do wyszukiwania. (Autouzupełnianie zostanie naprawione później).")
         
-        current_text = self.item_name_var.get().strip().lower()
+        self.on_weapon_select(None)
+
+    def on_weapon_select(self, event):
+        """
+        Aktualizuje listę "Skin" ORAZ stan listy "Jakość".
+        """
+        selected_weapon = self.weapon_combo.get()
+        skin_list = SKIN_DATA.get(selected_weapon, [])
         
-        if not self.suggestions_list:
-            return 
-
-        if not current_text:
-            # Puste pole: wyświetlamy 6 pierwszych
-            self.item_combobox['values'] = self.suggestions_list[:6]
+        if skin_list:
+            self.skin_combo.config(state="readonly")
+            self.skin_combo['values'] = skin_list
+            self.skin_combo.set(skin_list[0])
+            self.wear_combobox.config(state="readonly")
+            self.wear_combobox.set("(Field-Tested)")
+            self.stattrack_check.config(state="normal")
         else:
-            # Filtrujemy listę, szukając pasujących fragmentów
-            matches = [
-                name for name in self.suggestions_list
-                if current_text in name.lower() 
-            ]
-            
-            self.item_combobox['values'] = matches[:6]
-            
-            if matches and not self.item_combobox.winfo_ismapped():
-                 self.item_combobox.event_generate('<Down>')
-
-    def set_suggestions(self, suggestions):
-        """Ustawia listę sugestii po ich załadowaniu z pliku lub API."""
-        self.suggestions_list = suggestions
-        self.item_combobox['values'] = self.suggestions_list[:6] # Ustawiamy początkowe 6
+            self.skin_combo.config(state="disabled")
+            self.skin_combo['values'] = []
+            self.skin_combo.set("Brak")
+            self.wear_combobox.config(state="disabled")
+            self.wear_combobox.set("Brak")
+            self.stattrack_check.config(state="disabled")
+            self.stattrack_var.set(False)
 
     def update_welcome_label(self):
-        """Aktualizuje powitanie."""
         self.welcome_label.config(text=f"Witaj, {self.controller.steam_name}")
 
     def log_message(self, text):
-        """Dodaje wiadomość do ScrolledText."""
         self.status_text.config(state='normal')
         self.status_text.insert(tk.END, text + "\n")
         self.status_text.see(tk.END)
         self.status_text.config(state='disabled')
 
-    # ------------------------------------------------------------------
-    # METODY WYSZUKIWANIA
-    # ------------------------------------------------------------------
     def start_search_thread(self):
         
-        base_name = self.item_name_var.get().strip() 
+        weapon_name = self.weapon_combo.get()
+        skin_variant = self.skin_combo.get()
         selected_wear = self.wear_combobox.get()
         is_stattrack = self.stattrack_var.get()
         
-        if not base_name:
-            self.log_message("BŁĄD: Wpisz bazową nazwę przedmiotu!")
+        if not weapon_name:
+            self.log_message("BŁĄD: Wybierz typ broni!")
             return
             
         full_name_parts = []
+        
         if is_stattrack:
             full_name_parts.append("StatTrak™")
-        full_name_parts.append(base_name)
+        full_name_parts.append(weapon_name)
+        if skin_variant and skin_variant != "Brak":
+            full_name_parts.append(f"| {skin_variant}")
         if selected_wear != "Brak":
             full_name_parts.append(selected_wear)
             
@@ -162,31 +148,27 @@ class SearchView:
             if not history: 
                 self.controller.result_queue.put({'status': 'error', 'message': f'Brak danych historycznych dla {item_name}. Pamiętaj, że cookie może być nieaktualne lub przedmiot nie istnieje.'})
                 return
-        
             self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(history)} rekordów z API.'})
-
         except Exception as e:
             print(f"Krytyczny błąd w wątku (historia): {e}", file=sys.stderr)
             self.controller.result_queue.put({'status': 'error', 'message': f'Wystąpił krytyczny błąd podczas pobierania historii: {e}'})
             return
 
-        # 🛑 DODANIE PAUZY MIĘDZY ZAPYTANIAMI
         time.sleep(1.5) 
 
         # 2. Pobieranie aktualnych ofert (Listings)
         try:
-            # 🛑 Przekazujemy login_cookie do get_market_listings
-            listings_data = steam_market.get_market_listings(item_name, count=10)
+            # Przekazujemy 'login_cookie'
+            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=10)
+            
             if listings_data is None:
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
                 listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}
             else:
-                self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(listings_data["listings"])} z {listings_data["total_count"]} ofert.'})
-
+                self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(listings_data.get("listings", []))} z {listings_data.get("total_count", 0)} ofert.'})
         except Exception as e:
             print(f"Krytyczny błąd w wątku (oferty): {e}", file=sys.stderr)
             listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}
-
 
         # 3. Zapisywanie i przekazywanie danych
         try:
@@ -209,10 +191,12 @@ class SearchView:
 
             all_db_records = database.get_sales_for_item(item_name)
             
+            # --- USUNIĘTO BŁĘDNE SORTOWANIE STĄD ---
+            
             self.controller.result_queue.put({
                 'status': 'success',
                 'item_name': item_name,
-                'history_data': all_db_records,  
+                'history_data': all_db_records,  # Przekazujemy listę bez sortowania
                 'listings_data': listings_data    
             })
             
