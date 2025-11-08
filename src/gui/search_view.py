@@ -28,10 +28,16 @@ class SearchView:
         header_frame.grid(row=0, column=0, sticky='new', pady=(0, 10))
         header_frame.grid_columnconfigure(0, weight=1) 
 
-        ttk.Label(header_frame, text="CS2 Skin Analyzer", font=("Arial", 16, "bold")).pack(side='left', anchor='nw')
-        
-        self.welcome_label = ttk.Label(header_frame, text=f"Witaj, {self.controller.steam_name}")
+        left_header_group = ttk.Frame(header_frame)
+        left_header_group.pack(side='left', anchor='nw')
+        ttk.Label(left_header_group, text="CS2 Skin Analyzer", font=("Arial", 16, "bold")).pack(side='left')
+
+        # Prawa strona nagłówka: przycisk Wyloguj (po lewej) i etykieta powitania (po prawej)
+        right_header_group = ttk.Frame(header_frame)
+        right_header_group.pack(side='right', anchor='ne')
+        self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}")
         self.welcome_label.pack(side='right', anchor='ne')
+        ttk.Button(right_header_group, text="Wyloguj", command=self._go_back_to_login).pack(side='right', padx=(0,12))
         
         ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
 
@@ -99,6 +105,35 @@ class SearchView:
 
     def update_welcome_label(self):
         self.welcome_label.config(text=f"Witaj, {self.controller.steam_name}")
+
+    def _go_back_to_login(self):
+        """Przełącz do widoku logowania i wstaw obecne cookie do pola edycji."""
+        try:
+            current_cookie = getattr(self.controller, 'login_cookie', '') or ''
+            self.controller.switch_view('login')
+            login_view = self.controller.views.get('login')
+            if login_view and hasattr(login_view, 'cookie_entry'):
+                login_view.cookie_entry.delete(0, tk.END)
+                if current_cookie:
+                    login_view.cookie_entry.insert(0, current_cookie)
+                if hasattr(login_view, 'login_status'):
+                    login_view.login_status.config(text="Możesz zmienić wartość steamLoginSecure i ponownie połączyć.", foreground='gray')
+        except Exception as e:
+            print(f"Błąd powrotu do ekranu logowania: {e}", file=sys.stderr)
+
+    def _go_back_to_login(self):
+        """Przełącza do ekranu logowania z zachowaniem obecnego cookie w polu, umożliwiając jego zmianę."""
+        try:
+            current_cookie = getattr(self.controller, 'login_cookie', '') or ''
+            self.controller.switch_view('login')
+            # wypełnij pole cookie jeśli login_view istnieje i ma cookie_entry
+            login_view = self.controller.views.get('login')
+            if login_view and hasattr(login_view, 'cookie_entry'):
+                login_view.cookie_entry.delete(0, tk.END)
+                login_view.cookie_entry.insert(0, current_cookie)
+                login_view.login_status.config(text="Możesz zmienić wartość steamLoginSecure i ponownie połączyć.", foreground='gray')
+        except Exception as e:
+            print(f"Błąd powrotu do ekranu logowania: {e}", file=sys.stderr)
 
     def log_message(self, text):
         self.status_text.config(state='normal')

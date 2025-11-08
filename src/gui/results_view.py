@@ -27,6 +27,12 @@ class ResultsView:
         self.current_item_name = ""
         self.history_data = []
         self.listings_data = {}
+        # Stan sortowania historii (True = podstawowy kierunek: cena rosnąco, data malejąco -> najnowsze)
+        self._history_sort_states = {
+            'price': True,           # True => ascending, False => descending
+            'sale_timestamp': True   # True => newest first (descending), False => oldest first (ascending)
+        }
+        self._history_last_sorted = None
         # Paginacja ofert
         self.page_size = 10
         self.current_page = 0  # indeks strony (0-based)
@@ -243,8 +249,8 @@ class ResultsView:
         tree.heading("Typ", text="Typ")
         tree.heading("Jakość", text="Jakość")
         tree.heading("Skórka", text="Nazwa skórki")
-        tree.heading("Cena", text="Cena Sprzedaży")
-        tree.heading("Data", text="Data Sprzedaży")
+        tree.heading("Cena", text="Cena Sprzedaży", command=lambda: self._sort_history('price'))
+        tree.heading("Data", text="Data Sprzedaży", command=lambda: self._sort_history('sale_timestamp'))
         
         return tree
         
@@ -266,6 +272,20 @@ class ResultsView:
 
         if total_count == 0 or not self._all_listings:
             ttk.Label(info_frame, text="⛔ Brak aktualnych ofert sprzedaży na rynku.", foreground='red').pack(fill='x')
+            # Pokaż ostatnią zarejestrowaną sprzedaż z historii, jeśli dostępna
+            try:
+                if self.history_data:
+                    latest_sale = max(self.history_data, key=lambda r: r.get('sale_timestamp', 0))
+                    sale_date = latest_sale.get('sale_date_str', '-')
+                    sale_price = latest_sale.get('price', None)
+                    if sale_price is not None:
+                        ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}, cena: {sale_price:.2f} PLN", foreground='gray').pack(anchor='w')
+                    else:
+                        ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}", foreground='gray').pack(anchor='w')
+                else:
+                    ttk.Label(info_frame, text="Brak danych o ostatniej sprzedaży.", foreground='gray').pack(anchor='w')
+            except Exception as e:
+                print(f"Błąd prezentacji ostatniej sprzedaży: {e}", file=sys.stderr)
             return
 
         ttk.Label(info_frame, text=f"Łącznie ofert: {total_count}.").pack(anchor='w')
@@ -524,10 +544,6 @@ class ResultsView:
         """Wypełnia Treeview danymi historycznymi."""
         self.history_tree.delete(*self.history_tree.get_children())
         
-        if self.history_data:
-            # Sortujemy dane tutaj (od najnowszych)
-            self.history_data.sort(key=lambda x: x['sale_timestamp'], reverse=True)
-
         for record in self.history_data:
             # Wersja bez 'quantity'
             self.history_tree.insert("", tk.END, values=(
@@ -549,6 +565,7 @@ class ResultsView:
             self.history_toggle_button.config(text="Rozwiń Tabela Danych")
         else:
             if not self.history_tree.get_children():
+                self._initial_history_sort()
                 self._fill_history_table()
                 
             self.history_tree.pack(fill='both', expand=True, padx=5, pady=5)
@@ -599,6 +616,8 @@ class ResultsView:
         self._plot_chart('all') # Narysuj wykres "Ogółem"
         self._fill_listings()
         self._fill_summary()
+        # Przygotuj tabelę historii (nie pokazujemy dopóki użytkownik nie rozwinie)
+        self._initial_history_sort()
         
         self.scrollable_content.yview_moveto(0)
 
@@ -609,3 +628,51 @@ class ResultsView:
             widget.destroy()
         summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {lowest_price_text}")
         summary_label.pack(side='left', padx=5, pady=5)
+
+    # --- SORTOWANIE HISTORII ---
+    def _initial_history_sort(self):
+        """Ustaw wstępne sortowanie: daty malejąco (najnowsze)."""
+        if not self.history_data:
+            return
+        # daty malejąco (najnowsze pierwsze)
+        self.history_data.sort(key=lambda r: r.get('sale_timestamp', 0), reverse=True)
+        self._history_last_sorted = 'sale_timestamp'
+        # zaktualizuj nagłówek daty
+        self._update_history_headers(active='sale_timestamp', ascending=False)  # descending = newest first
+
+    def _sort_history(self, field):
+        """Sortuje historię po wskazanym polu. Kliknięcie przełącza kierunek."""
+        if not self.history_data:
+            return
+        if field not in ('price', 'sale_timestamp'):
+            return
+        ascending = self._history_sort_states[field]
+        if field == 'price':
+            # cena: ascending True => rosnąco (najniższa pierwsza)
+            self.history_data.sort(key=lambda r: r.get('price', 0), reverse=not ascending)
+        else:  # sale_timestamp
+            # data: ascending True => newest first (timestamp descending)
+            self.history_data.sort(key=lambda r: r.get('sale_timestamp', 0), reverse=ascending)
+        # toggle kierunek na następną interakcję
+        self._history_sort_states[field] = not ascending
+        self._history_last_sorted = field
+        # aktualizuj nagłówki strzałkami
+        # dla daty: ascending True oznacza że PREVIOUS click zrobił newest first, aktualny sort jest zrobiony według poprzedniego ascending flagi
+        # po sortowaniu chcemy wyświetlić kierunek użyty, czyli 'ascending' variable
+        self._update_history_headers(active=field, ascending=ascending if field=='price' else (not ascending))
+        self._fill_history_table()
+
+    def _update_history_headers(self, active=None, ascending=True):
+        """Aktualizuje tekst nagłówków z symbolami kierunku sortowania."""
+        try:
+            price_arrow = ''
+            date_arrow = ''
+            if active == 'price':
+                price_arrow = ' ↑' if ascending else ' ↓'
+            elif active == 'sale_timestamp':
+                # ascending (for display) = chronologicznie rosnąco (starsze -> nowsze); descending = najnowsze pierwsze
+                date_arrow = ' ↑' if ascending else ' ↓'
+            self.history_tree.heading("Cena", text=f"Cena Sprzedaży{price_arrow}", command=lambda: self._sort_history('price'))
+            self.history_tree.heading("Data", text=f"Data Sprzedaży{date_arrow}", command=lambda: self._sort_history('sale_timestamp'))
+        except Exception as e:
+            print(f"Błąd aktualizacji nagłówków sortowania: {e}", file=sys.stderr)
