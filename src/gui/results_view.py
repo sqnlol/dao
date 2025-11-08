@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk
+from src import steam_market
 import sys
 import operator # do sortowania listy
 import datetime
@@ -26,8 +27,19 @@ class ResultsView:
         self.current_item_name = ""
         self.history_data = []
         self.listings_data = {}
-        
-        self.current_listing_display_limit = 15 
+        # Paginacja ofert
+        self.page_size = 10
+        self.current_page = 0  # indeks strony (0-based)
+        self._all_listings = []  # pełna lista do paginacji
+        self._page_cache = {}  # page_idx -> list of listings
+        self._pages_loading = set()
+        self._cache_item_key = None  # identyfikator aktualnego przedmiotu dla cache
+        self._total_count = 0
+        # stały rozmiar okna z listą, aby uniknąć skoków i umożliwić overlay
+        self._listings_width = 780
+        self._listings_height = 320
+        self._overlay_canvas = None
+        self._overlay_stipple = "gray50"  # intensywność bluru: gray12 (lekki) / gray50 (mocny)
 
         self._create_widgets()
         
@@ -71,7 +83,7 @@ class ResultsView:
         self.chart_section.grid_columnconfigure(0, weight=1)
         self._create_chart_widgets(self.chart_section)
         
-        # Sekcja Ofert
+    # Sekcja Ofert
         self.listings_section = ttk.LabelFrame(self.inner_frame, text="📊 Aktualne Oferty Rynkowe")
         self.listings_section.grid(row=1, column=0, sticky="ew", pady=(0, 15))
         self.listings_section.grid_columnconfigure(0, weight=1)
@@ -239,53 +251,245 @@ class ResultsView:
     def _fill_listings(self):
         for widget in self.listings_section.winfo_children():
             widget.destroy()
-        listings = self.listings_data.get('listings', [])
-        total_count = self.listings_data.get('total_count', 0)
+        # Ustal cache i bieżącą stronę/dane
+        if not self._page_cache:
+            initial = self.listings_data.get('listings', [])
+            self._page_cache[0] = initial
+            self._all_listings = initial
+        else:
+            self._all_listings = self._page_cache.get(self.current_page, [])
+        # Używaj bieżącej wartości z listings_data aby uniknąć rozjazdu z etykietami/metadanymi
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+
         info_frame = ttk.Frame(self.listings_section)
         info_frame.pack(fill='x', padx=5, pady=5)
-        
-        if total_count == 0 or not listings:
+
+        if total_count == 0 or not self._all_listings:
             ttk.Label(info_frame, text="⛔ Brak aktualnych ofert sprzedaży na rynku.", foreground='red').pack(fill='x')
-            if self.listings_data.get('highest_buy_order'):
-                ttk.Label(info_frame, text=f"Najwyższe zlecenie kupna (Buy Order): {self.listings_data['highest_buy_order']}").pack(fill='x')
             return
-        
-        ttk.Label(info_frame, text=f"Liczba ofert: {total_count}.").pack(anchor='w')
-        ttk.Separator(self.listings_section, orient='horizontal').pack(fill='x', padx=5, pady=2)
-        listings_frame = ttk.Frame(self.listings_section)
-        listings_frame.pack(fill='x', padx=5)
-        
+
+        ttk.Label(info_frame, text=f"Łącznie ofert: {total_count}.").pack(anchor='w')
+        lp = self.listings_data.get('lowest_price')
+        lp_float = self.listings_data.get('lowest_price_float')
+        if lp_float is not None:
+            ttk.Label(info_frame, text=f"Najniższa oferta: {lp_float:.2f} PLN", foreground='green').pack(anchor='w')
+        elif lp:
+            ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
+
+        # Nawigacja stron
+        nav_frame = ttk.Frame(self.listings_section)
+        nav_frame.pack(fill='x', padx=5)
+        first_btn = ttk.Button(nav_frame, text="⏮ Pierwsza", command=lambda: self._goto_page(0))
+        prev_btn = ttk.Button(nav_frame, text="◀ Poprzednie", command=self._prev_page)
+        next_btn = ttk.Button(nav_frame, text="Następne ▶", command=self._next_page)
+        last_btn = ttk.Button(nav_frame, text="Ostatnia ⏭", command=self._goto_last_page)
+        first_btn.pack(side='left')
+        prev_btn.pack(side='left', padx=(5,0))
+        last_btn.pack(side='right')
+        next_btn.pack(side='right', padx=(0,5))
+        self.page_label = ttk.Label(nav_frame, text="Strona 1")
+        self.page_label.pack(side='top', pady=2)
+
+        ttk.Separator(self.listings_section, orient='horizontal').pack(fill='x', padx=5, pady=4)
+        # Stały obszar listy ofert + overlay
+        container = tk.Frame(self.listings_section, width=self._listings_width, height=self._listings_height)
+        container.pack_propagate(False)
+        container.pack(fill='x', padx=5)
+        listings_frame = ttk.Frame(container)
+        listings_frame.pack(fill='both', expand=True)
+        # zapamiętaj kontener do overlay
+        self._listings_container = container
         listings_frame.grid_columnconfigure(0, weight=1)
         listings_frame.grid_columnconfigure(1, weight=1)
         listings_frame.grid_columnconfigure(2, weight=1)
-        
         ttk.Label(listings_frame, text="Lp.", font=('Arial', 9, 'bold')).grid(row=0, column=0, padx=5, sticky='w')
         ttk.Label(listings_frame, text="Cena Końcowa", font=('Arial', 9, 'bold')).grid(row=0, column=1, padx=5, sticky='e')
         ttk.Label(listings_frame, text="Prowizja Steam", font=('Arial', 9, 'bold')).grid(row=0, column=2, padx=5, sticky='e')
-        
-        row_num = 1
-        for i, listing in enumerate(listings[:self.current_listing_display_limit]):
-            price = listing.get('price_float')
-            fee = listing.get('fee')
-            
-            ttk.Label(listings_frame, text=f"{i + 1}.", anchor='w').grid(row=row_num, column=0, padx=5, sticky='w')
-            price_text = f"{price:.2f} PLN" if price is not None else "N/A"
-            fee_text = f"{fee:.2f} PLN" if fee is not None else "N/A"
-            
-            ttk.Label(listings_frame, text=price_text, anchor='e', foreground='green').grid(row=row_num, column=1, padx=5, sticky='e')
-            ttk.Label(listings_frame, text=fee_text, anchor='e').grid(row=row_num, column=2, padx=5, sticky='e')
-            row_num += 1
-            
-        if total_count > self.current_listing_display_limit and len(listings) >= self.current_listing_display_limit:
-            more_button = ttk.Button(self.listings_section, text=f"Pokaż kolejne 15 ofert (Wyświetlono: {self.current_listing_display_limit}/{total_count})", command=self._load_more_listings)
-            more_button.pack(pady=5, padx=5, fill='x')
-        
+
+        self._render_current_page_rows(listings_frame)
+        # Prefetch kolejnej strony jeśli istnieje
+        self._maybe_prefetch_next()
         self.inner_frame.update_idletasks()
         self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
 
-    def _load_more_listings(self):
-        self.current_listing_display_limit += 10
-        self._fill_listings()
+    def _maybe_prefetch_next(self):
+        """Prefetch kolejnej strony jeśli jej nie ma w cache i istnieje."""
+        try:
+            item_key = self._cache_item_key or self.current_item_name
+            total_count = self.listings_data.get('total_count', 0)
+            next_start = (self.current_page + 1) * self.page_size
+            if next_start >= total_count:
+                return
+            next_page = self.current_page + 1
+            if next_page in self._page_cache or next_page in self._pages_loading:
+                return
+            self._pages_loading.add(next_page)
+            def worker():
+                data = steam_market.get_market_listings_page(self.current_item_name, self.controller.login_cookie, start=next_start, count=self.page_size)
+                # Zapis tylko jeśli nadal oglądamy ten sam przedmiot
+                if data and data.get('listings') and self._cache_item_key == item_key:
+                    self._page_cache[next_page] = data['listings']
+                    try:
+                        self.controller.result_queue.put({'status': 'log', 'message': f'Prefetch: strona {next_page + 1} gotowa.'})
+                    except Exception:
+                        pass
+                self._pages_loading.discard(next_page)
+            import threading
+            threading.Thread(target=worker, daemon=True).start()
+        except Exception as e:
+            print(f"Prefetch błąd: {e}", file=sys.stderr)
+
+    def _render_current_page_rows(self, parent):
+        # Usuń stare wiersze (zostaw nagłówek row=0)
+        for child in parent.winfo_children():
+            info = child.grid_info()
+            if info.get('row') and info.get('row') != 0:
+                child.destroy()
+        # Wyświetlamy bieżącą załadowaną stronę (self._all_listings reprezentuje stronę)
+        subset = self._all_listings
+        for idx, listing in enumerate(subset, start=1):
+            price = listing.get('price_float')
+            fee = listing.get('fee')
+            price_text = f"{price:.2f} PLN" if price is not None else "N/A"
+            fee_text = f"{fee:.2f} PLN" if fee is not None else "N/A"
+            base_index = self.current_page * self.page_size
+            ttk.Label(parent, text=str(base_index + idx)).grid(row=idx, column=0, padx=5, sticky='w')
+            ttk.Label(parent, text=price_text, foreground='green').grid(row=idx, column=1, padx=5, sticky='e')
+            ttk.Label(parent, text=fee_text).grid(row=idx, column=2, padx=5, sticky='e')
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        total_pages = max(1, (total_count + self.page_size - 1) // self.page_size)
+        self.page_label.config(text=f"Strona {self.current_page + 1} / {total_pages}")
+        # Aktualizacja etykiety "Łącznie ofert" następuje przy pełnym przeładowaniu (_fill_listings)
+
+    def _next_page(self):
+        if getattr(self, '_loading_page', False):
+            return
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        target_page = self.current_page + 1
+        start = target_page * self.page_size
+        if start >= total_count:
+            return  # brak dalszych stron
+        # Preferuj cache – jeśli mamy, przełącz lokalnie
+        if target_page in self._page_cache:
+            self._goto_page(target_page)
+        else:
+            self._fetch_page(start)
+
+    def _prev_page(self):
+        if getattr(self, '_loading_page', False):
+            return
+        if self.current_page > 0:
+            target_page = self.current_page - 1
+            # Preferuj cache
+            if target_page in self._page_cache:
+                self._goto_page(target_page)
+            else:
+                start = target_page * self.page_size
+                self._fetch_page(start)
+
+    def _goto_last_page(self):
+        if getattr(self, '_loading_page', False):
+            return
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        last_page = max(0, (total_count - 1) // self.page_size)
+        if last_page == self.current_page:
+            return
+        # Preferuj cache jeśli już pobrana
+        if last_page in self._page_cache:
+            self._goto_page(last_page)
+        else:
+            self._fetch_page(last_page * self.page_size)
+
+    def _goto_page(self, page_idx):
+        if getattr(self, '_loading_page', False):
+            return
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        max_page = max(0, (total_count - 1) // self.page_size)
+        if page_idx < 0 or page_idx > max_page:
+            return
+        if page_idx == self.current_page:
+            return
+        # Jeśli mamy cache — przełącz lokalnie, bez sieci
+        if page_idx in self._page_cache:
+            self.current_page = page_idx
+            self._all_listings = self._page_cache.get(self.current_page, [])
+            try:
+                # log: przejście na stronę z cache
+                next_page = self.current_page + 1
+                prefetch_ready = next_page in self._page_cache
+                self.controller.result_queue.put({'status': 'log', 'message': f'Oferty: strona {self.current_page + 1} z cache. Prefetch następnej: {"TAK" if prefetch_ready else "NIE"}.'})
+            except Exception:
+                pass
+            self._fill_listings()
+        else:
+            self._fetch_page(page_idx * self.page_size)
+
+    def _fetch_page(self, start):
+        self._loading_page = True
+        self._show_overlay("Ładowanie…")
+        item_key = self._cache_item_key
+
+        def worker():
+            data = None
+            try:
+                data = steam_market.get_market_listings_page(self.current_item_name, self.controller.login_cookie, start=start, count=self.page_size)
+            except Exception as e:
+                print(f"Błąd pobierania strony ofert: {e}", file=sys.stderr)
+            def apply():
+                self._loading_page = False
+                # Jeśli użytkownik przełączył przedmiot w trakcie pobierania strony – porzuć
+                if self._cache_item_key != item_key:
+                    self._hide_overlay()
+                    return
+                if data is None:
+                    ttk.Label(self.listings_section, text="Błąd pobierania strony.", foreground='red').pack(pady=5)
+                    return
+                page_idx = start // self.page_size
+                self._all_listings = data.get('listings', [])
+                # log do SearchView: strona pobrana z sieci
+                try:
+                    self.controller.result_queue.put({'status': 'log', 'message': f'Oferty: załadowano stronę { (start // self.page_size) + 1 } z sieci.'})
+                except Exception:
+                    pass
+                # zapis do cache tej strony
+                self._page_cache[page_idx] = self._all_listings
+                self.listings_data['listings'] = self._all_listings
+                self.listings_data['total_count'] = data.get('total_count', self.listings_data.get('total_count', len(self._all_listings)))
+                self.listings_data['lowest_price'] = data.get('lowest_price', self.listings_data.get('lowest_price'))
+                self.listings_data['lowest_price_float'] = data.get('lowest_price_float', self.listings_data.get('lowest_price_float'))
+                self.current_page = page_idx
+                self._hide_overlay()
+                self._fill_listings()
+            self.controller.root.after(0, apply)
+
+        import threading
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_overlay(self, text="Ładowanie…"):
+        try:
+            if getattr(self, '_listings_container', None) is None:
+                return
+            if self._overlay_canvas is not None:
+                try:
+                    self._overlay_canvas.destroy()
+                except Exception:
+                    pass
+            canvas = tk.Canvas(self._listings_container, width=self._listings_width, height=self._listings_height, highlightthickness=0, bd=0)
+            canvas.place(x=0, y=0)
+            # prostokąt z wzorem stipple, efekt "przyciemnienia"
+            canvas.create_rectangle(0, 0, self._listings_width, self._listings_height, fill="gray", stipple=self._overlay_stipple, outline="")
+            canvas.create_text(self._listings_width//2, self._listings_height//2, text=text, fill="white", font=("Arial", 12, "bold"))
+            self._overlay_canvas = canvas
+        except Exception as e:
+            print(f"Overlay błąd: {e}", file=sys.stderr)
+
+    def _hide_overlay(self):
+        try:
+            if self._overlay_canvas is not None:
+                self._overlay_canvas.destroy()
+                self._overlay_canvas = None
+        except Exception:
+            pass
 
     def _fill_summary(self):
         history = self.history_data
@@ -359,11 +563,22 @@ class ResultsView:
     # ------------------------------------------------------------------
     def show_results(self, item_name, history_data, listings_data):
         """Aktualizuje widok po pomyślnym pobraniu danych."""
-        
+        # Reset cache dla nowego przedmiotu (uniknięcie przenikania ofert starego)
+        self._cache_item_key = item_name
+        self._page_cache.clear()
+        self._pages_loading.clear()
+        self._all_listings = []
+        self._total_count = 0
+        if getattr(self, '_overlay_canvas', None) is not None:
+            try:
+                self._overlay_canvas.destroy()
+            except Exception:
+                pass
+            self._overlay_canvas = None
         self.current_item_name = item_name
         self.history_data = history_data
         self.listings_data = listings_data
-        self.current_listing_display_limit = 15 
+        self.current_page = 0
         
         self.title_label.config(text=f"Wyniki dla: {item_name}")
         
@@ -371,14 +586,15 @@ class ResultsView:
         if listings_data is None:
             listings_data = {} # Zapewnij pusty słownik, aby .get() nie crashował
         # --- KONIEC POPRAWKI ---
-        
-        lowest_price = listings_data.get('lowest_price', "N/A")
-        buy_order = listings_data.get('highest_buy_order', "N/A")
+
+        lowest_price = listings_data.get('lowest_price')
+        lowest_price_float = listings_data.get('lowest_price_float')
+        lp_text = f"{lowest_price_float:.2f} PLN" if lowest_price_float is not None else (lowest_price or "N/A")
         
         self._clear_sections()
         
         # Tworzymy etykietę podsumowania tutaj, po wyczyszczeniu
-        self._create_summary_label(lowest_price, buy_order) # Przywrócone
+        self._create_summary_label(lp_text)
         
         self._plot_chart('all') # Narysuj wykres "Ogółem"
         self._fill_listings()
@@ -387,13 +603,9 @@ class ResultsView:
         self.scrollable_content.yview_moveto(0)
 
     # --- PRZYWRÓCONA FUNKCJA ---
-    def _create_summary_label(self, lowest_price, buy_order):
-        """Tworzy etykietę podsumowania w odpowiedniej ramce."""
-        # Usuń starą etykietę, jeśli istnieje
+    def _create_summary_label(self, lowest_price_text):
+        """Tworzy etykietę podsumowania (tylko najniższa oferta)."""
         for widget in self.summary_section.winfo_children():
             widget.destroy()
-            
-        summary_text = f"Najniższa oferta: {lowest_price} | Najwyższe zlecenie kupna: {buy_order}"
-        
-        summary_label = ttk.Label(self.summary_section, text=summary_text)
+        summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {lowest_price_text}")
         summary_label.pack(side='left', padx=5, pady=5)

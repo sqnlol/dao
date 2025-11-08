@@ -109,6 +109,33 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 
 ## Historia Zmian (Changelog) 
 
+### CS2 Skin Analyzer v0.3 (Tydzień 3):
+
+| Data | Opis Zmiany / Działania | Status |
+| :--- | :--- | :--- |
+| **Widok Wyszukiwania** | Zamiast ręcznego wpisywania nazwy całej skórki użytkownik wybiera bazową nazwę i wariant z predefiniowanej listy. | Ukończono |
+| **Wykres Sprzedaży** | Dodano wykres historycznych transakcji w `ResultsView` (Matplotlib) z wyborem zakresu: tydzień / miesiąc / ogółem. | Ukończono |
+| **Wyświetlanie Aktualnych Ofert** | Po dodaniu nowych funkcji pojawił się błąd w pełnym wyświetlaniu ofert – trwa naprawa parsowania/odświeżania. | W trakcie naprawy |
+
+### CS2 Skin Analyzer v0.4 (Tydzień 4):
+
+| Data | Opis Zmiany / Działania | Status |
+| :--- | :--- | :--- |
+| **Poprawa Parsowania Ofert** | Najpierw JSON `listinginfo`, potem fallback HTML; eliminacja błędów `NoneType`. | Ukończono |
+| **Paginacja Backend** | Wielostronicowe pobieranie ofert z limitacją `MAX_PAGES` + metryki (strony, retry). | Ukończono |
+| **On-Demand Paginacja GUI** | Dynamiczne pobieranie stron (`get_market_listings_page`) zamiast ładowania całego zestawu. | Ukończono |
+| **Cache Stron** | Cache + prefetch kolejnej strony dla płynniejszej nawigacji. | Ukończono |
+| **Izolacja Cache per Przedmiot** | Reset cache przy zmianie itemu, brak mieszania ofert. | Ukończono |
+| **Overlay Ładowania** | Półprzezroczysty overlay nad tabelą ofert w czasie pobierania. | Ukończono |
+| **Najniższa Oferta Spójna** | Najniższa cena wyliczana z parsowanych ofert (nie tylko z API). | Ukończono |
+| **Usunięcie Highest Buy Order** | Pole najwyższego zlecenia kupna usunięte (mała wartość analityczna). | Ukończono |
+| **Backoff + Jitter** | Mechanizm ponawiania (exponential backoff) dla 429/503 z losowym jitter. | Ukończono |
+| **Metryki** | Logowanie: liczba stron i retry w SearchView. | Ukończono |
+| **Format Dat Historycznych** | Parsowanie dat do `YYYY-MM-DD HH:00`. | Ukończono |
+| **Sortowanie Cen Ofert** | Rosnąco po cenie (None na końcu). | Ukończono |
+| **Spójność Licznika Ofert** | "Łącznie ofert" używa bieżącego `total_count`. | Ukończono |
+| **Prefetch Logi** | Logi informujące cache vs sieć + status prefetchu. | Ukończono |
+
 ### CS2 Skin Analyzer v0.2 (Tydzień 2):
 
 #### Ekran Logowania
@@ -156,3 +183,83 @@ Moduł zarządzający persystencją danych przy użyciu **SQLite3**.
 | **Współpraca** | Integracja kodu z systemem kontroli wersji GitHub. | Ukończono |
 | **Wyzwania API** | Stwierdzenie problemów z pobieraniem danych z API Steam (blokowanie zapytań bez nagłówków przeglądarki/cookie). | Napotkano |
 | **Alternatywy** | Początkowe próby pracy z zewnętrznymi API (porzucone na rzecz bezpośredniego dostępu Steam). | W toku |
+
+***
+
+## Aktualna Architektura (v0.4)
+
+### Warstwa GUI
+| Plik | Rola | Kluczowe Elementy |
+| :--- | :--- | :--- |
+| `login_view.py` | Pobranie i zapis cookie `steamLoginSecure`. | Pole wejściowe cookie, walidacja, przekazanie do kontrolera. |
+| `search_view.py` | Wybór przedmiotu z listy i uruchomienie pobierania. | Wątek `_search_worker`, logi, parsowanie nazwy, zapis do DB. |
+| `results_view.py` | Prezentacja wyników: wykres, oferty, historia, paginacja. | Cache stron, prefetch, overlay, dynamiczne etykiety. |
+| `app.py` | Główny kontroler i pętla odczytu kolejki. | `switch_view`, `process_queue`, dystrybucja komunikatów. |
+
+### Warstwa Backend / API
+| Moduł | Funkcja | Szczegóły |
+| :--- | :--- | :--- |
+| `steam_market.get_price_history` | Pobieranie historii cen. | Wymaga cookie, parsowanie dat (UTC). |
+| `steam_market.get_market_listings` | Pobieranie pakietu ofert + metryki. | JSON→HTML fallback, sortowanie, min-cena z listingu. |
+| `steam_market.get_market_listings_page` | Stronicowanie on-demand. | Parametry start/count; integracja z ResultsView. |
+| `steam_market.parse_market_name` | Standaryzacja nazwy. | Typ, wear, StatTrak. |
+
+### Warstwa Danych
+| Moduł | Funkcja | Szczegóły |
+| :--- | :--- | :--- |
+| `database.init_db` | Inicjalizacja schematu. | Tabela `sales` + unikaty. |
+| `database.add_sales` | Dodanie rekordów. | Ignorowanie duplikatów `IntegrityError`. |
+| `database.get_sales_for_item` | Odczyt danych historycznych. | Sortowanie chronologiczne. |
+
+### Mechanizmy Wydajności / Stabilności
+* Exponential backoff + jitter dla kodów 429/503.
+* Prefetch następnej strony ofert (thread + log).
+* Cache stron per przedmiot (reset przy zmianie itemu).
+* Overlay przy wczytywaniu ofert (Canvas + stipple).
+
+### Format Danych (Listings)
+```
+{
+  'listings': [ {'price_float': float|None, 'fee': float|None}, ... ],
+  'total_count': int,
+  'lowest_price': str,
+  'lowest_price_float': float,
+  'meta': { 'retries': int, 'pages_loaded': int }
+}
+```
+
+### Uruchomienie (Quick Start)
+1. Instalacja zależności:
+    ```bash
+    pip install -r requirements.txt
+    ```
+2. Start aplikacji:
+    ```bash
+    python src\main.py
+    ```
+3. Wprowadź cookie `steamLoginSecure`.
+4. Wybierz przedmiot → poczekaj na pobranie → analizuj oferty i wykres.
+
+### Najczęstsze Problemy
+| Problem | Przyczyna | Rozwiązanie |
+| :--- | :--- | :--- |
+| Brak historii cen | Cookie wygasło lub brak | Podaj aktualne `steamLoginSecure`. |
+| Mało ofert | Limit API / brak dalszych stron | Spróbuj ponownie; możliwy rate limit. |
+| Zła najniższa cena | Stare źródło z API | Obecnie liczona z listingu. |
+| 429/503 | Rate limit Steam | Odczekaj; backoff działa automatycznie. |
+
+### Backlog (Plany)
+* Sortowanie ofert po wielu kolumnach + filtr minimalnej ceny.
+* Trwały cache między sesjami (plik/SQLite dodatkowa tabela).
+* Eksport historii do CSV.
+* Alerty cenowe (progi + powiadomienia w UI).
+
+***
+
+## Licencja
+Projekt edukacyjno-analityczny. Używaj zgodnie z regulaminem Steam. Brak gwarancji.
+
+## Autor
+Rozwój: architektura, backend, GUI, dokumentacja.
+
+Zgłaszaj błędy i pomysły poprzez Issues.

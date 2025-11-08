@@ -163,9 +163,16 @@ class SearchView:
             
             if listings_data is None:
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
-                listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}
+                listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A"}
             else:
-                self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(listings_data.get("listings", []))} z {listings_data.get("total_count", 0)} ofert.'})
+                fetched = len(listings_data.get("listings", []))
+                total = listings_data.get("total_count", 0)
+                self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {fetched} z {total} ofert.'})
+                meta = listings_data.get('meta') or {}
+                pages = meta.get('pages_loaded')
+                retries = meta.get('retries')
+                if pages is not None or retries is not None:
+                    self.controller.result_queue.put({'status': 'log', 'message': f'Metryki: Strony: {pages or 0} | Retry: {retries or 0}.'})
         except Exception as e:
             print(f"Krytyczny błąd w wątku (oferty): {e}", file=sys.stderr)
             listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}
