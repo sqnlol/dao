@@ -60,6 +60,11 @@ class ResultsView:
 
         self.title_label = ttk.Label(header_frame, text="[Nazwa Przedmiotu]", font=("Arial", 16, "bold"))
         self.title_label.grid(row=0, column=1, padx=10, sticky='w')
+        # miejsce na obrazek przedmiotu w prawym górnym rogu
+        header_frame.grid_columnconfigure(2, weight=0)
+        self._header_image_label = tk.Label(header_frame, bd=0)
+        self._header_image_label.grid(row=0, column=2, sticky='e')
+        self._current_item_image = None
         
         ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
         
@@ -159,10 +164,7 @@ class ResultsView:
         for spine in self.ax.spines.values():
             spine.set_edgecolor('white')
 
-        # Miejsce na obrazek przed wykresem (domyślnie ukryty)
-        self._image_label = ttk.Label(master)
-        self._image_label.pack(fill='x', padx=5, pady=(0,5))
-        self._current_item_image = None  # referencja do PhotoImage aby GC nie usunął
+    # (Obrazek zostanie wyświetlany w nagłówku jako header image)
 
         self.chart_canvas = FigureCanvasTkAgg(self.fig, master=master)
         self.chart_canvas.get_tk_widget().pack(fill='both', expand=True, padx=5, pady=5)
@@ -633,21 +635,64 @@ class ResultsView:
                     resp = requests.get(image_url, timeout=15)
                     if resp.status_code == 200 and resp.content:
                         img = Image.open(BytesIO(resp.content))
-                        # Zmień rozmiar na sensowną wysokość (np. 120px) zachowując proporcje
-                        max_h = 120
+                        # Zmień rozmiar na sensowną wysokość i powiększ (np. 180px) zachowując proporcje
+                        max_h = 180
                         w, h = img.size
                         if h > max_h:
                             new_w = int(w * (max_h / float(h)))
                             img = img.resize((new_w, max_h), Image.LANCZOS)
+                        # Jeśli obraz ma jasne (białe) tło - dopasuj tło GUI do bieli, aby się "skleiło"
+                        try:
+                            rgb = img.convert('RGB')
+                            w2, h2 = rgb.size
+                            # próbkuj rogi
+                            corners = [rgb.getpixel((0,0)), rgb.getpixel((w2-1,0)), rgb.getpixel((0,h2-1)), rgb.getpixel((w2-1,h2-1))]
+                            avg = tuple(sum(c[i] for c in corners)//len(corners) for i in range(3))
+                            if avg[0] >= 230 and avg[1] >= 230 and avg[2] >= 230:
+                                hex_bg = '#ffffff'
+                                try:
+                                    self.scrollable_content.config(bg=hex_bg)
+                                except Exception:
+                                    pass
+                                try:
+                                    self._header_image_label.config(bg=hex_bg)
+                                except Exception:
+                                    pass
+                                try:
+                                    style = ttk.Style()
+                                    style.configure('Results.TFrame', background=hex_bg)
+                                    try:
+                                        self.frame.configure(style='Results.TFrame')
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+                                try:
+                                    # również dostosuj tło wykresu do jasnego motywu (lekko szare osie)
+                                    import matplotlib
+                                    norm_rgb = (1.0, 1.0, 1.0)
+                                    darker = (0.95, 0.95, 0.95)
+                                    self.fig.patch.set_facecolor(norm_rgb)
+                                    self.ax.set_facecolor(darker)
+                                    try:
+                                        self.chart_canvas.draw()
+                                    except Exception:
+                                        pass
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
                         tkimg = ImageTk.PhotoImage(img)
                         def apply():
                             try:
+                                # Ustaw obrazek w nagłówku (prawy górny róg)
                                 self._current_item_image = tkimg
-                                self._image_label.config(image=self._current_item_image)
-                                self._image_label.pack_forget()
-                                self._image_label.pack(fill='x', padx=5, pady=(0,5))
-                                # Przesuń widok do góry, aby użytkownik zobaczył obrazek
-                                self.scrollable_content.yview_moveto(0)
+                                self._header_image_label.config(image=self._current_item_image)
+                                # Przesuń widok do góry, aby użytkownik zobaczył nagłówek
+                                try:
+                                    self.scrollable_content.yview_moveto(0)
+                                except Exception:
+                                    pass
                             except Exception as e:
                                 print(f"Błąd ustawiania obrazka: {e}", file=sys.stderr)
                         self.controller.root.after(0, apply)
