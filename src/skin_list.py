@@ -1230,3 +1230,30 @@ SKIN_DATA = {
     "Revolution Case": [],
     "Kilowatt Case": [],
 }
+
+# Kategoryzacja broni (ułatwia selekcję w GUI)
+# Klucz: polska nazwa kategorii -> lista kluczy z SKIN_DATA
+WEAPON_CATEGORIES = {
+    "Karabiny": [
+        "AK-47", "M4A4", "M4A1-S", "FAMAS", "Galil AR", "AUG",
+        "G3SG1", "SCAR-20", "SG 553", "SSG 08", "AWP"
+    ],
+    "Pistolety": [
+        "Desert Eagle", "USP-S", "Glock-18", "Five-SeveN", "Tec-9",
+        "CZ75-Auto", "P2000", "Dual Berettas", "P250", "R8 Revolver"
+    ],
+    "SMG": [
+        "MP9", "MAC-10", "MP5-SD", "PP-Bizon", "P90", "UMP-45"
+    ],
+    "Strzelby": [
+        "MAG-7", "Nova", "Sawed-Off", "XM1014"
+    ],
+    "Ciężkie": [
+        "M249", "Negev"
+    ],
+    "Skrzynki": [k for k in SKIN_DATA.keys() if k.endswith('Case')],
+    "Noże": [
+        # Placeholdery — brak dedykowanych wpisów noży w SKIN_DATA teraz.
+        # Możesz dodać klucze typu 'Karambit', 'M9 Bayonet' z listami skinów.
+    ]
+}

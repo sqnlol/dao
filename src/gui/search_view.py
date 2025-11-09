@@ -7,7 +7,7 @@ import time
 
 from src import steam_market
 from src import database
-from src.skin_list import SKIN_DATA
+from src.skin_list import SKIN_DATA, WEAPON_CATEGORIES
 
 
 class SearchView:
@@ -57,28 +57,38 @@ class SearchView:
         self.wear_combobox.grid(row=0, column=3, sticky='ew', pady=5)
         self.wear_combobox.set("(Field-Tested)")
 
-        ttk.Label(input_frame, text="Typ broni:").grid(row=1, column=0, padx=(0, 10), pady=5, sticky='w')
+        # Kategoria broni (np. Karabiny, Pistolety, Noże)
+        ttk.Label(input_frame, text="Kategoria broni:").grid(row=1, column=0, padx=(0, 10), pady=5, sticky='w')
+        categories = sorted(list(WEAPON_CATEGORIES.keys()))
+        self.category_combo = ttk.Combobox(input_frame, values=categories, state='readonly')
+        self.category_combo.grid(row=1, column=1, sticky='ew', pady=5)
+        if categories:
+            self.category_combo.set(categories[0])
+
+        # Typ broni (filtrowane przez wybraną kategorię)
+        ttk.Label(input_frame, text="Typ broni:").grid(row=2, column=0, padx=(0, 10), pady=5, sticky='w')
         weapon_list = sorted(list(SKIN_DATA.keys()))
         self.weapon_combo = ttk.Combobox(input_frame, values=weapon_list, state='readonly')
-        self.weapon_combo.grid(row=1, column=1, sticky='ew', pady=5)
-        self.weapon_combo.set("AK-47")
+        self.weapon_combo.grid(row=2, column=1, sticky='ew', pady=5)
 
-        ttk.Label(input_frame, text="Skin:").grid(row=1, column=2, padx=(10, 5), pady=5, sticky='w')
+        ttk.Label(input_frame, text="Skin:").grid(row=2, column=2, padx=(10, 5), pady=5, sticky='w')
         self.skin_combo = ttk.Combobox(input_frame, state='disabled')
-        self.skin_combo.grid(row=1, column=3, sticky='ew', pady=5)
+        self.skin_combo.grid(row=2, column=3, sticky='ew', pady=5)
 
         self.search_button = ttk.Button(input_frame, text="Pobierz i zapisz", command=self.start_search_thread, state='normal')
         self.search_button.grid(row=0, column=4, rowspan=2, padx=(10, 0), sticky='nsew')
         
         self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
+        self.category_combo.bind("<<ComboboxSelected>>", self.on_category_select)
 
         self.status_text = scrolledtext.ScrolledText(self.frame, wrap=tk.WORD, state='disabled', height=10)
         self.status_text.grid(row=3, column=0, sticky='nsew', pady=(10, 0))
         
         if not self.controller.all_suggestions:
             self.log_message("Gotowy do wyszukiwania. (Autouzupełnianie zostanie naprawione później).")
-        
-        self.on_weapon_select(None)
+
+        # Wypełnij listę broni według wybranej kategorii
+        self.on_category_select(None)
 
     def on_weapon_select(self, event):
         """
@@ -102,6 +112,42 @@ class SearchView:
             self.wear_combobox.set("Brak")
             self.stattrack_check.config(state="disabled")
             self.stattrack_var.set(False)
+
+    def on_category_select(self, event):
+        """
+        Aktualizuje listę typów broni (weapon_combo) na podstawie wybranej kategorii.
+        Jeśli kategoria jest pusta lub nie zawiera wpisów, pokaż wszystkie dostępne typy.
+        """
+        selected_cat = self.category_combo.get() if hasattr(self, 'category_combo') else None
+        weapons = []
+        if selected_cat:
+            weapons = WEAPON_CATEGORIES.get(selected_cat, [])
+
+        if not weapons:
+            # pokaż wszystkie dostępne typy
+            weapons = sorted(list(SKIN_DATA.keys()))
+
+        # filtruj tylko te, które istnieją w SKIN_DATA
+        weapons = [w for w in weapons if w in SKIN_DATA]
+        weapons = sorted(weapons)
+
+        if weapons:
+            self.weapon_combo.config(state='readonly')
+            self.weapon_combo['values'] = weapons
+            # ustaw domyślnie pierwszy element jeśli aktualnie nie ma wartości
+            try:
+                current = self.weapon_combo.get()
+            except Exception:
+                current = ''
+            if not current or current not in weapons:
+                self.weapon_combo.set(weapons[0])
+        else:
+            self.weapon_combo.config(state='disabled')
+            self.weapon_combo['values'] = []
+            self.weapon_combo.set('')
+
+        # Zaktualizuj listę skinów dla aktualnie wybranej broni
+        self.on_weapon_select(None)
 
     def update_welcome_label(self):
         self.welcome_label.config(text=f"Witaj, {self.controller.steam_name}")
