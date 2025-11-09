@@ -285,7 +285,9 @@ class SearchView:
                 'status': 'success',
                 'item_name': item_name,
                 'history_data': all_db_records,  # Przekazujemy listę bez sortowania
-                'listings_data': listings_data    
+                'listings_data': listings_data,
+                # Pobierz URL obrazka (jeśli dostępny) i przekaż dalej; nie blokujemy krytycznie jeśli brak
+                'image_url': steam_market.get_item_image_url(item_name, login_cookie)
             })
             
         except Exception as e:

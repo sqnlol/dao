@@ -147,18 +147,23 @@ class ResultsView:
         # Czarne tło
         self.fig = Figure(figsize=(8, 3), dpi=100)
         self.fig.patch.set_facecolor('#2E2E2E')
-        
-        self.ax = self.fig.add_subplot(111) 
+
+        self.ax = self.fig.add_subplot(111)
         self.ax.set_facecolor('#1C1C1C')
         self.ax.tick_params(axis='x', colors='white')
         self.ax.tick_params(axis='y', colors='white')
         self.ax.yaxis.label.set_color('white')
         self.ax.xaxis.label.set_color('white')
         self.ax.title.set_color('white')
-        
+
         for spine in self.ax.spines.values():
             spine.set_edgecolor('white')
-        
+
+        # Miejsce na obrazek przed wykresem (domyślnie ukryty)
+        self._image_label = ttk.Label(master)
+        self._image_label.pack(fill='x', padx=5, pady=(0,5))
+        self._current_item_image = None  # referencja do PhotoImage aby GC nie usunął
+
         self.chart_canvas = FigureCanvasTkAgg(self.fig, master=master)
         self.chart_canvas.get_tk_widget().pack(fill='both', expand=True, padx=5, pady=5)
         self.chart_canvas.draw()
@@ -616,6 +621,40 @@ class ResultsView:
         self._plot_chart('all') # Narysuj wykres "Ogółem"
         self._fill_listings()
         self._fill_summary()
+        # Spróbuj pobrać i wyświetlić obrazek jeśli został przekazany
+        image_url = listings_data.get('image_url') if isinstance(listings_data, dict) else None
+        if image_url:
+            # Pobierz obraz asynchronicznie i ustaw w UI w wątku głównym
+            def download_and_set():
+                try:
+                    import requests
+                    from PIL import Image, ImageTk
+                    from io import BytesIO
+                    resp = requests.get(image_url, timeout=15)
+                    if resp.status_code == 200 and resp.content:
+                        img = Image.open(BytesIO(resp.content))
+                        # Zmień rozmiar na sensowną wysokość (np. 120px) zachowując proporcje
+                        max_h = 120
+                        w, h = img.size
+                        if h > max_h:
+                            new_w = int(w * (max_h / float(h)))
+                            img = img.resize((new_w, max_h), Image.LANCZOS)
+                        tkimg = ImageTk.PhotoImage(img)
+                        def apply():
+                            try:
+                                self._current_item_image = tkimg
+                                self._image_label.config(image=self._current_item_image)
+                                self._image_label.pack_forget()
+                                self._image_label.pack(fill='x', padx=5, pady=(0,5))
+                                # Przesuń widok do góry, aby użytkownik zobaczył obrazek
+                                self.scrollable_content.yview_moveto(0)
+                            except Exception as e:
+                                print(f"Błąd ustawiania obrazka: {e}", file=sys.stderr)
+                        self.controller.root.after(0, apply)
+                except Exception as e:
+                    print(f"Ostrzeżenie: nie udało się pobrać obrazka: {e}", file=sys.stderr)
+            import threading
+            threading.Thread(target=download_and_set, daemon=True).start()
         # Przygotuj tabelę historii (nie pokazujemy dopóki użytkownik nie rozwinie)
         self._initial_history_sort()
         

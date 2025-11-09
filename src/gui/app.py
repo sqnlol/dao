@@ -155,12 +155,16 @@ class MarketApp:
                 if "search" in self.views:
                     self.views["search"].log_message("Pobieranie i zapisywanie zakończone pomyślnie.")
                     self.views["search"].search_button.config(state='normal')
-                
+                # Jeśli worker dołączył 'image_url' na najwyższym poziomie, wstaw go do listings_data
+                listings = result.get('listings_data') or {}
+                if 'image_url' in result and isinstance(listings, dict):
+                    listings['image_url'] = result.get('image_url')
+
                 self.switch_view(
-                    "results", 
-                    item_name=result['item_name'], 
+                    "results",
+                    item_name=result['item_name'],
                     history_data=result['history_data'],
-                    listings_data=result['listings_data']
+                    listings_data=listings
                 )
                 
         except queue.Empty:

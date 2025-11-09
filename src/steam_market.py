@@ -459,6 +459,38 @@ def _fetch_item_nameid(market_hash_name, headers, timeout=20):
         print(f"Ostrzeżenie: błąd pobierania item_nameid: {e}", file=sys.stderr)
         return None
 
+
+def get_item_image_url(market_hash_name, login_cookie=None, timeout=15):
+    """Pobiera URL obrazka przedmiotu (og:image) z strony listingowej.
+
+    Zwraca URL (string) lub None przy błędzie.
+    """
+    try:
+        headers = base_headers.copy()
+        if login_cookie:
+            headers['Cookie'] = f"steamLoginSecure={login_cookie}"
+        url = f"https://steamcommunity.com/market/listings/730/{quote(market_hash_name)}"
+        resp = _http_get_with_backoff(url, headers=headers, timeout=timeout, max_retries=1, initial_sleep=0.6, metrics={})
+        if resp is None or resp.status_code != 200:
+            return None
+        html = resp.text
+        # Najpierw spróbuj metatagu og:image
+        m = re.search(r'<meta\s+property="og:image"\s+content="([^"]+)"', html)
+        if m:
+            return m.group(1)
+        # Fallback: element <img ... class="market_listing_largeimage" src="...">
+        m2 = re.search(r'<img[^>]*class="[^"]*largeimage[^"]*"[^>]*src="([^"]+)"', html)
+        if m2:
+            return m2.group(1)
+        # Fallback alternatywny: small preview image
+        m3 = re.search(r'<img[^>]*class="[^"]*market_listing_item_img[^"]*"[^>]*src="([^"]+)"', html)
+        if m3:
+            return m3.group(1)
+        return None
+    except Exception as e:
+        print(f"Ostrzeżenie: błąd pobierania image_url: {e}", file=sys.stderr)
+        return None
+
 def _fetch_highest_buy_order_from_histogram(item_nameid, headers, timeout=20):
     """Pobiera histogram zleceń i zwraca highest_buy_order (float i str)."""
     try:
