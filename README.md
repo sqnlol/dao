@@ -180,6 +180,26 @@ CS2 Skin Analyzer/
 
 ### CS2 Skin Analyzer v0.4 (Tydzień 4):
 
+#### Ekran Logowania
+
+![gui_login_v0.4](https://github.com/sqnlol/dao/blob/main/src/img/gui_login_v0.4.png?raw=true)
+
+#### Ekran Wyszukiwania (Guest)
+
+![gui_search_guest_v0.4](https://github.com/sqnlol/dao/blob/main/src/img/gui_search_guest_v0.4.png?raw=true)
+
+#### Ekran Wyszukiwania (User)
+
+![gui_search_log_v0.4](https://github.com/sqnlol/dao/blob/main/src/img/gui_search_log_v0.4.png?raw=true)
+
+#### Ekran Wyników (Guest)
+
+![gui_result_guest_v0.4](https://github.com/sqnlol/dao/blob/main/src/img/gui_result_guest_v0.4.png?raw=true)
+
+#### Ekran Wyników (User)
+
+![gui_result_log_v0.4](https://github.com/sqnlol/dao/blob/main/src/img/gui_result_log_v0.4.png?raw=true)
+
 | Data | Opis Zmiany / Działania | Status |
 | :--- | :--- | :--- |
 | **Poprawa Parsowania Ofert** | Najpierw JSON `listinginfo`, potem fallback HTML; eliminacja błędów `NoneType`. | Ukończono |
