@@ -150,6 +150,12 @@ CS2 Skin Analyzer/
 | `threading` | Uruchamianie długotrwałych operacji sieciowych w osobnym wątku, aby aplikacja GUI pozostawała responsywna. |
 | `queue` | Bezpieczna komunikacja między wątkiem roboczym a głównym wątkiem GUI (FIFO). |
 | `re` (regex) | Parsowanie tekstowe, głównie do ekstrakcji atrybutów przedmiotu z nazwy rynkowej. |
+| `matplotlib` | Renderowanie wykresu historii cen (Figure, Axes, event hover). |
+| `numpy` | Efektywne obliczenia dystansu punktu (hover), operacje na tablicach. |
+| `Pillow` (`PIL`) | Skalowanie i konwersja obrazków skórek oraz generacja ikony `.ico`. |
+| `selenium` | Automatyczne uruchamianie przeglądarki (Edge/Chrome) i przechwytywanie cookie `steamLoginSecure`. |
+| `webdriver-manager` | Automatyczne zarządzanie sterownikami Selenium (fallback przy braku wbudowanego). |
+| `pyinstaller` | Budowanie dystrybucji wykonywalnej (.exe) aplikacji. |
 
 ## Format Danych (Listings)
 ```

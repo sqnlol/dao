@@ -18,3 +18,8 @@ steam_market.db
 
 # Specyficzne dla VS Code
 .vscode/
+
+# Pliki budowy
+/build/
+.spec
+*.spec
