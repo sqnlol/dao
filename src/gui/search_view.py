@@ -23,15 +23,24 @@ class SearchView:
         self._create_widgets()
         
     def _create_widgets(self):
-        
+        # Ustaw styl ciemny dla kilku elementów
+        style = ttk.Style()
+        try:
+            style.theme_use('clam')
+        except Exception:
+            pass
+        style.configure('Dark.TFrame', background='#2E2E2E')
+        style.configure('Dark.TLabel', background='#2E2E2E', foreground='white')
+        style.configure('Dark.TButton', background='#3A3A3A', foreground='white')
         header_frame = ttk.Frame(self.frame)
         header_frame.grid(row=0, column=0, sticky='new', pady=(0, 10))
         header_frame.grid_columnconfigure(0, weight=1) 
 
-        left_header_group = ttk.Frame(header_frame)
+        left_header_group = ttk.Frame(header_frame, style='Dark.TFrame')
         left_header_group.pack(side='left', anchor='nw')
-        ttk.Label(left_header_group, text="CS2 Skin Analyzer", font=("Arial", 16, "bold")).pack(side='left')
+        ttk.Label(left_header_group, text="CS2 Skin Analyzer", font=("Arial", 16, "bold"), style='Dark.TLabel').pack(side='left')
 
+<<<<<<< HEAD
         # Prawa strona nagłówka: przycisk Wyloguj (skrajnie po prawej),
         # po jego lewej komunikat o braku cookie, a jeszcze bardziej po lewej etykieta powitania
         right_header_group = ttk.Frame(header_frame)
@@ -52,6 +61,14 @@ class SearchView:
         # Etykieta powitania (skrajnie prawa kolumna)
         self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}")
         self.welcome_label.grid(row=0, column=2, sticky='e')
+=======
+        # Prawa strona nagłówka: przycisk Wyloguj (po lewej) i etykieta powitania (po prawej)
+        right_header_group = ttk.Frame(header_frame, style='Dark.TFrame')
+        right_header_group.pack(side='right', anchor='ne')
+        self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}", style='Dark.TLabel')
+        self.welcome_label.pack(side='right', anchor='ne')
+        ttk.Button(right_header_group, text="Wyloguj", command=self._go_back_to_login, style='Dark.TButton').pack(side='right', padx=(0,12))
+>>>>>>> 1bf4889dc00c72dcea6ada07e27f6b91a7944be3
         
         ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
 
@@ -82,6 +99,7 @@ class SearchView:
         # Typ broni (filtrowane przez wybraną kategorię)
         ttk.Label(input_frame, text="Typ broni:").grid(row=2, column=0, padx=(0, 10), pady=5, sticky='w')
         weapon_list = sorted(list(SKIN_DATA.keys()))
+        # default readonly; for 'Noże' category we'll make it editable and blank
         self.weapon_combo = ttk.Combobox(input_frame, values=weapon_list, state='readonly')
         self.weapon_combo.grid(row=2, column=1, sticky='ew', pady=5)
 
@@ -97,6 +115,16 @@ class SearchView:
         
         self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
         self.category_combo.bind("<<ComboboxSelected>>", self.on_category_select)
+
+        # Dodatkowy pasek informacyjny (ciemny) pod nagłówkiem
+        info_frame = ttk.Frame(self.frame, style='Dark.TFrame')
+        info_frame.grid(row=1, column=0, sticky='ew', pady=(0, 6))
+        info_frame.grid_columnconfigure(0, weight=1)
+        self.version_label = ttk.Label(info_frame, text="Wersja: 0.1.0", style='Dark.TLabel')
+        self.version_label.pack(side='left', padx=8)
+        self.suggestions_label = ttk.Label(info_frame, text="Sugestie: ładowanie...", style='Dark.TLabel')
+        self.suggestions_label.pack(side='left', padx=8)
+        ttk.Button(info_frame, text="Odśwież autouzupełnianie", command=self._refresh_suggestions, style='Dark.TButton').pack(side='right', padx=8)
 
         self.status_text = scrolledtext.ScrolledText(self.frame, wrap=tk.WORD, state='disabled', height=10)
         self.status_text.grid(row=3, column=0, sticky='nsew', pady=(10, 0))
@@ -203,6 +231,24 @@ class SearchView:
         if selected_cat:
             weapons = WEAPON_CATEGORIES.get(selected_cat, [])
 
+        # Jeśli kategoria to Noże -> pozostaw pole 'Typ broni' puste i edytowalne (użytkownik wpisuje sam nazwe noża)
+        if selected_cat == 'Noże':
+            # Wyczyść listę wartości i pozwól wpisywać (state normal)
+            self.weapon_combo.config(state='normal')
+            self.weapon_combo['values'] = []
+            try:
+                self.weapon_combo.set('')
+            except Exception:
+                pass
+            # wyłącz listę skinów — użytkownik wpisuje pełną nazwę (np. "★ Karambit | Doppler (Factory New)")
+            self.skin_combo.config(state='disabled')
+            self.skin_combo['values'] = []
+            self.skin_combo.set('')
+            # Ustaw stattrak/ wear dostępne
+            self.wear_combobox.config(state='readonly')
+            self.stattrack_check.config(state='normal')
+            return
+
         if not weapons:
             # pokaż wszystkie dostępne typy
             weapons = sorted(list(SKIN_DATA.keys()))
@@ -232,8 +278,36 @@ class SearchView:
     def update_welcome_label(self):
         # Aktualizuj etykietę powitania
         self.welcome_label.config(text=f"Witaj, {self.controller.steam_name}")
+<<<<<<< HEAD
         # Pokaż/ukryj komunikat o braku cookie
         has_cookie = bool(getattr(self.controller, 'login_cookie', None))
+=======
+
+    def set_suggestions(self, suggestions):
+        """Called by the controller when the suggestions list is available."""
+        try:
+            self.controller.all_suggestions = suggestions or []
+            self.suggestions_label.config(text=f"Sugestie: {len(self.controller.all_suggestions)}")
+            self.log_message(f"Autouzupełnianie załadowane ({len(self.controller.all_suggestions)} pozycji).")
+        except Exception as e:
+            print(f"Błąd podczas ustawiania sugestii: {e}", file=sys.stderr)
+
+    def _refresh_suggestions(self):
+        """Handler for the 'Odśwież autouzupełnianie' button. Kicks off controller's fetch in background."""
+        try:
+            self.log_message("Uruchamianie odświeżania autouzupełniania...")
+            # Defer to controller which knows how to fetch and save suggestions
+            if hasattr(self.controller, '_fetch_suggestions_async'):
+                self.controller._fetch_suggestions_async()
+                self.log_message("Pobieranie sugestii uruchomione w tle.")
+            else:
+                self.log_message("FUNKCJA: brak mechanizmu odświeżania w kontrolerze.")
+        except Exception as e:
+            self.log_message(f"Błąd podczas odświeżania sugestii: {e}")
+
+    def _go_back_to_login(self):
+        """Przełącz do widoku logowania i wstaw obecne cookie do pola edycji."""
+>>>>>>> 1bf4889dc00c72dcea6ada07e27f6b91a7944be3
         try:
             if has_cookie:
                 # Ukryj etykietę o braku cookie, ale zachowaj layout grid
