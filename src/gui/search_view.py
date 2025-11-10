@@ -40,7 +40,6 @@ class SearchView:
         left_header_group.pack(side='left', anchor='nw')
         ttk.Label(left_header_group, text="CS2 Skin Analyzer", font=("Arial", 16, "bold"), style='Dark.TLabel').pack(side='left')
 
-<<<<<<< HEAD
         # Prawa strona nagłówka: przycisk Wyloguj (skrajnie po prawej),
         # po jego lewej komunikat o braku cookie, a jeszcze bardziej po lewej etykieta powitania
         right_header_group = ttk.Frame(header_frame)
@@ -61,14 +60,6 @@ class SearchView:
         # Etykieta powitania (skrajnie prawa kolumna)
         self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}")
         self.welcome_label.grid(row=0, column=2, sticky='e')
-=======
-        # Prawa strona nagłówka: przycisk Wyloguj (po lewej) i etykieta powitania (po prawej)
-        right_header_group = ttk.Frame(header_frame, style='Dark.TFrame')
-        right_header_group.pack(side='right', anchor='ne')
-        self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}", style='Dark.TLabel')
-        self.welcome_label.pack(side='right', anchor='ne')
-        ttk.Button(right_header_group, text="Wyloguj", command=self._go_back_to_login, style='Dark.TButton').pack(side='right', padx=(0,12))
->>>>>>> 1bf4889dc00c72dcea6ada07e27f6b91a7944be3
         
         ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
 
@@ -278,36 +269,8 @@ class SearchView:
     def update_welcome_label(self):
         # Aktualizuj etykietę powitania
         self.welcome_label.config(text=f"Witaj, {self.controller.steam_name}")
-<<<<<<< HEAD
         # Pokaż/ukryj komunikat o braku cookie
         has_cookie = bool(getattr(self.controller, 'login_cookie', None))
-=======
-
-    def set_suggestions(self, suggestions):
-        """Called by the controller when the suggestions list is available."""
-        try:
-            self.controller.all_suggestions = suggestions or []
-            self.suggestions_label.config(text=f"Sugestie: {len(self.controller.all_suggestions)}")
-            self.log_message(f"Autouzupełnianie załadowane ({len(self.controller.all_suggestions)} pozycji).")
-        except Exception as e:
-            print(f"Błąd podczas ustawiania sugestii: {e}", file=sys.stderr)
-
-    def _refresh_suggestions(self):
-        """Handler for the 'Odśwież autouzupełnianie' button. Kicks off controller's fetch in background."""
-        try:
-            self.log_message("Uruchamianie odświeżania autouzupełniania...")
-            # Defer to controller which knows how to fetch and save suggestions
-            if hasattr(self.controller, '_fetch_suggestions_async'):
-                self.controller._fetch_suggestions_async()
-                self.log_message("Pobieranie sugestii uruchomione w tle.")
-            else:
-                self.log_message("FUNKCJA: brak mechanizmu odświeżania w kontrolerze.")
-        except Exception as e:
-            self.log_message(f"Błąd podczas odświeżania sugestii: {e}")
-
-    def _go_back_to_login(self):
-        """Przełącz do widoku logowania i wstaw obecne cookie do pola edycji."""
->>>>>>> 1bf4889dc00c72dcea6ada07e27f6b91a7944be3
         try:
             if has_cookie:
                 # Ukryj etykietę o braku cookie, ale zachowaj layout grid
@@ -319,6 +282,27 @@ class SearchView:
                     self.cookie_mode_label.grid()
         except Exception:
             pass
+
+    def set_suggestions(self, suggestions):
+        """Ustawia listę sugestii po pobraniu; aktualizuje etykietę i log."""
+        try:
+            self.controller.all_suggestions = suggestions or []
+            self.suggestions_label.config(text=f"Sugestie: {len(self.controller.all_suggestions)}")
+            self.log_message(f"Autouzupełnianie załadowane ({len(self.controller.all_suggestions)} pozycji).")
+        except Exception as e:
+            print(f"Błąd podczas ustawiania sugestii: {e}", file=sys.stderr)
+
+    def _refresh_suggestions(self):
+        """Uruchamia odświeżenie autouzupełniania przez kontroler w tle."""
+        try:
+            self.log_message("Uruchamianie odświeżania autouzupełniania...")
+            if hasattr(self.controller, '_fetch_suggestions_async'):
+                self.controller._fetch_suggestions_async()
+                self.log_message("Pobieranie sugestii uruchomione w tle.")
+            else:
+                self.log_message("FUNKCJA: brak mechanizmu odświeżania w kontrolerze.")
+        except Exception as e:
+            self.log_message(f"Błąd podczas odświeżania sugestii: {e}")
 
     def _update_suggestions(self):
         """Rozpoczyna asynchroniczne pobieranie listy przedmiotów (wznowienie jeśli przerwane)."""
