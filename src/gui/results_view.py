@@ -4,7 +4,7 @@ from src import steam_market
 import sys
 import operator # do sortowania listy
 import datetime
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 # --- IMPORTY DLA WYKRESU (prosta wersja) ---
 import matplotlib
@@ -47,6 +47,10 @@ class ResultsView:
         self._overlay_canvas = None
         self._overlay_stipple = "gray50"  # intensywność bluru: gray12 (lekki) / gray50 (mocny)
 
+        # Cache obrazków (LRU)
+        self._image_cache = OrderedDict()
+        self._image_cache_limit = 50
+
         self._create_widgets()
         
     def _create_widgets(self):
@@ -83,25 +87,31 @@ class ResultsView:
         self.inner_frame.bind("<Configure>", lambda e: self.scrollable_content.configure(scrollregion=self.scrollable_content.bbox("all")))
         self.inner_frame.grid_columnconfigure(0, weight=1)
         
+        # --- SEKCJA OBRAZKA ---
+        self.image_section = ttk.LabelFrame(self.inner_frame, text="🖼 Obrazek")
+        self.image_section.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        self.image_section.grid_columnconfigure(0, weight=1)
+        self._create_image_widgets(self.image_section)
+
         # --- SEKCJA WYKRESU (PROSTA WERSJA) ---
         self.chart_section = ttk.LabelFrame(self.inner_frame, text="📈 Wykres Cenowy")
-        self.chart_section.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        self.chart_section.grid(row=1, column=0, sticky="ew", pady=(0, 15))
         self.chart_section.grid_columnconfigure(0, weight=1)
         self._create_chart_widgets(self.chart_section)
         
     # Sekcja Ofert
         self.listings_section = ttk.LabelFrame(self.inner_frame, text="📊 Aktualne Oferty Rynkowe")
-        self.listings_section.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        self.listings_section.grid(row=2, column=0, sticky="ew", pady=(0, 15))
         self.listings_section.grid_columnconfigure(0, weight=1)
         
         # Sekcja Podsumowania
         self.summary_section = ttk.LabelFrame(self.inner_frame, text="📜 Podsumowanie Historyczne")
-        self.summary_section.grid(row=2, column=0, sticky="ew", pady=(0, 15))
+        self.summary_section.grid(row=3, column=0, sticky="ew", pady=(0, 15))
         self.summary_section.grid_columnconfigure(0, weight=1)
 
         # Sekcja Tabeli Historii
         self.history_table_section = ttk.LabelFrame(self.inner_frame, text="⏳ Szczegóły Transakcji Historycznych")
-        self.history_table_section.grid(row=3, column=0, sticky="ew", pady=(0, 15))
+        self.history_table_section.grid(row=4, column=0, sticky="ew", pady=(0, 15))
         self.history_table_section.grid_columnconfigure(0, weight=1)
         
         self.history_expanded = tk.BooleanVar(value=False)
@@ -129,6 +139,13 @@ class ResultsView:
         self.history_expanded.set(False)
         self.history_toggle_button.config(text="Rozwiń Tabela Danych")
         self.history_toggle_button.pack(pady=5, padx=5, fill='x')
+        # Wyczyść obrazek
+        try:
+            if hasattr(self, '_image_label'):
+                self._image_label.config(image='', text='(Brak obrazka)')
+            self._current_item_image = None
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # --- FUNKCJE DLA WYKRESU (PROSTA WERSJA) ---
@@ -159,14 +176,35 @@ class ResultsView:
         for spine in self.ax.spines.values():
             spine.set_edgecolor('white')
 
-        # Miejsce na obrazek przed wykresem (domyślnie ukryty)
-        self._image_label = ttk.Label(master)
-        self._image_label.pack(fill='x', padx=5, pady=(0,5))
-        self._current_item_image = None  # referencja do PhotoImage aby GC nie usunął
-
         self.chart_canvas = FigureCanvasTkAgg(self.fig, master=master)
         self.chart_canvas.get_tk_widget().pack(fill='both', expand=True, padx=5, pady=5)
         self.chart_canvas.draw()
+        # Przygotuj adnotację do podpowiedzi hover i nasłuchiwanie zdarzeń myszy
+        try:
+            self._hover_annot = self.ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(12, 12),
+                textcoords="offset points",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#000000", ec="#ffffff", alpha=0.85),
+                color="white",
+            )
+            self._hover_annot.set_visible(False)
+            self._hover_threshold_px = 12  # maks. odległość w pikselach od punktu, aby pokazać tooltip
+            self.chart_canvas.mpl_connect("motion_notify_event", self._on_chart_hover)
+        except Exception:
+            # Jeżeli środowisko nie obsłuży – trudno, wykres pozostaje bez hover
+            self._hover_annot = None
+            self._hover_threshold_px = 0
+    
+    def _create_image_widgets(self, master):
+        """Tworzy kontener i etykietę na obrazek, wyśrodkowaną w sekcji."""
+        self._image_container = ttk.Frame(master)
+        self._image_container.pack(fill='x', padx=5, pady=(5,5))
+        # Domyślny tekst, dopóki nie pobierzemy grafiki
+        self._image_label = ttk.Label(self._image_container, text='(Brak obrazka)')
+        self._image_label.pack(anchor='center')
+        self._current_item_image = None
 
     def _plot_chart(self, time_range='all'):
         """Wersja Opcja A: Rysuje każdą pojedynczą transakcję."""
@@ -189,6 +227,7 @@ class ResultsView:
         
         x_dates = []
         y_prices = []
+        plotted_records = []
         
         try:
             for record in self.history_data:
@@ -196,9 +235,11 @@ class ResultsView:
                 if time_range == 'all':
                     x_dates.append(record_date)
                     y_prices.append(record['price'])
+                    plotted_records.append(record)
                 elif limit_date is not None and record_date > limit_date:
                     x_dates.append(record_date)
                     y_prices.append(record['price'])
+                    plotted_records.append(record)
         except Exception as e:
             print(f"Błąd przetwarzania daty dla wykresu: {e}", file=sys.stderr)
             return
@@ -215,7 +256,11 @@ class ResultsView:
         
         # --- KLUCZOWA ZMIANA ---
         # Zmieniono 'o' (kropki) na '.-' (linia z kropkami)
-        self.ax.plot(x_dates, y_prices, '.-', markersize=4, color='#3498db', alpha=0.7)
+        line, = self.ax.plot(x_dates, y_prices, '.-', markersize=4, color='#3498db', alpha=0.7)
+        # Zapamiętaj dane do hover tooltips
+        self._chart_line = line
+        self._chart_points = list(zip(x_dates, y_prices))
+        self._chart_records = plotted_records
         # --- KONIEC ZMIANY ---
         
         self.ax.set_title(f"Historia transakcji ({time_range})", color='white')
@@ -236,6 +281,175 @@ class ResultsView:
         
         self.inner_frame.update_idletasks()
         self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
+        
+        # Po czyszczeniu osi podczas rysowania adnotacja mogła zostać usunięta – odtwórz ją
+        try:
+            if hasattr(self, '_hover_annot') and self._hover_annot is not None:
+                try:
+                    self._hover_annot.remove()
+                except Exception:
+                    pass
+            self._hover_annot = self.ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(12, 12),
+                textcoords="offset points",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#000000", ec="#ffffff", alpha=0.85),
+                color="white",
+            )
+            self._hover_annot.set_visible(False)
+            if not hasattr(self, '_hover_threshold_px'):
+                self._hover_threshold_px = 12
+            # Przygotuj też zielone podświetlenie punktu (nakładka scatter jednopunktowa)
+            try:
+                if hasattr(self, '_hover_dot') and self._hover_dot is not None:
+                    try:
+                        self._hover_dot.remove()
+                    except Exception:
+                        pass
+                self._hover_dot = self.ax.scatter([], [], s=48, color='lime', zorder=5, marker='o')
+                self._hover_dot.set_visible(False)
+            except Exception:
+                self._hover_dot = None
+        except Exception as e:
+            try:
+                print(f"Błąd odtwarzania adnotacji: {e}", file=sys.stderr)
+            except Exception:
+                pass
+
+    def _on_chart_hover(self, event):
+        """Obsługuje najechanie myszą nad wykresem i wyświetla dymek ze szczegółami sprzedaży."""
+        try:
+            if getattr(self, '_chart_points', None) is None or not self._chart_points:
+                return
+            if event.inaxes != self.ax:
+                if self._hover_annot and self._hover_annot.get_visible():
+                    self._hover_annot.set_visible(False)
+                    self.chart_canvas.draw_idle()
+                return
+
+            # Znajdź najbliższy punkt w przestrzeni pikselowej
+            # Zamień wszystkie punkty na współrzędne ekranu jeden raz na zdarzenie
+            import numpy as np
+            # Konwersja X do wartości numerycznych jeśli to daty (datetime)
+            if isinstance(self._chart_points[0][0], datetime.datetime):
+                xs = [mdates.date2num(x) for x, _ in self._chart_points]
+            else:
+                xs = [x for x, _ in self._chart_points]
+            ys = [y for _, y in self._chart_points]
+            pts_data = np.column_stack([xs, ys])
+            xys_disp = self.ax.transData.transform(pts_data)
+            ex, ey = event.x, event.y
+            # Oblicz odległość euklidesową do każdego punktu
+            pts = np.asarray(xys_disp)
+            dists = np.hypot(pts[:, 0] - ex, pts[:, 1] - ey)
+            idx = int(np.argmin(dists))
+            min_dist = float(dists[idx])
+            if min_dist <= getattr(self, '_hover_threshold_px', 10):
+                x, y = self._chart_points[idx]
+                rec = None
+                try:
+                    rec = self._chart_records[idx]
+                except Exception:
+                    pass
+                # Tekst dymka
+                if isinstance(x, datetime.datetime):
+                    dt_str = x.strftime('%Y-%m-%d %H:%M')
+                else:
+                    try:
+                        dt = mdates.num2date(x)
+                        dt_str = dt.strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        dt_str = str(x)
+                price_txt = f"{y:.2f} PLN"
+                # Jeśli mamy oryginalny rekord, użyj jego pola sale_date_str jeżeli istnieje
+                if rec and isinstance(rec, dict):
+                    dt_str = rec.get('sale_date_str', dt_str)
+                text = f"Data: {dt_str}\nCena: {price_txt}"
+                # Ustawienie pozycji adnotacji i dynamiczna korekta, aby dymek nie wychodził poza płótno
+                # 1) pozycja bazowa
+                self._hover_annot.xy = (x, y)
+                # 2) ustaw bazowe przesunięcie i wyrównanie
+                off_x, off_y = 12, 12
+                ha, va = 'left', 'bottom'
+                self._hover_annot.set_position((off_x, off_y))
+                try:
+                    self._hover_annot.set_ha(ha)
+                    self._hover_annot.set_va(va)
+                except Exception:
+                    pass
+                # 3) Oblicz, czy dymek wyjeżdża poza canvas – użyj rzeczywistego bbox adnotacji
+                try:
+                    canvas = self.chart_canvas.get_tk_widget()
+                    canvas_w = max(1, int(canvas.winfo_width()))
+                    canvas_h = max(1, int(canvas.winfo_height()))
+                    pad_px = 4
+                    # renderer może nie być dostępny bez narysowania; spróbuj go pobrać
+                    renderer = None
+                    try:
+                        renderer = self.fig.canvas.get_renderer()
+                    except Exception:
+                        pass
+                    if renderer is None:
+                        try:
+                            # jednorazowy rysunek, aby renderer istniał
+                            self.chart_canvas.draw()
+                            renderer = self.fig.canvas.get_renderer()
+                        except Exception:
+                            renderer = None
+                    if renderer is not None:
+                        bbox = self._hover_annot.get_window_extent(renderer=renderer)
+                        need_flip_x = bbox.x1 > canvas_w - pad_px
+                        need_flip_y_top = bbox.y1 > canvas_h - pad_px
+                        need_flip_y_bottom = bbox.y0 < pad_px
+                        # Flip w poziomie, jeśli potrzeba
+                        if need_flip_x:
+                            off_x = -12
+                            ha = 'right'
+                        # Flip w pionie w zależności od strony, która wychodzi
+                        if need_flip_y_top:
+                            off_y = -12
+                            va = 'top'
+                        elif need_flip_y_bottom:
+                            off_y = 12
+                            va = 'bottom'
+                        # zastosuj korekty
+                        try:
+                            self._hover_annot.set_position((off_x, off_y))
+                            self._hover_annot.set_ha(ha)
+                            self._hover_annot.set_va(va)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                self._hover_annot.set_text(text)
+                self._hover_annot.set_visible(True)
+                # Podświetl aktywny punkt zieloną kropką nad nim
+                try:
+                    if hasattr(self, '_hover_dot') and self._hover_dot is not None:
+                        sx = mdates.date2num(x) if isinstance(x, datetime.datetime) else x
+                        self._hover_dot.set_offsets([[sx, y]])
+                        self._hover_dot.set_visible(True)
+                except Exception:
+                    pass
+                self.chart_canvas.draw_idle()
+            else:
+                if self._hover_annot and self._hover_annot.get_visible():
+                    self._hover_annot.set_visible(False)
+                    self.chart_canvas.draw_idle()
+                # Ukryj kropkę-jeśli była widoczna
+                try:
+                    if hasattr(self, '_hover_dot') and self._hover_dot is not None and self._hover_dot.get_visible():
+                        self._hover_dot.set_visible(False)
+                        self.chart_canvas.draw_idle()
+                except Exception:
+                    pass
+        except Exception as e:
+            # Nie blokuj UI w razie problemów z kursorem
+            try:
+                print(f"Błąd hover tooltip: {e}", file=sys.stderr)
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # FUNKCJE BUDOWANIA WIDOKU (BEZ ZMIAN)
@@ -618,43 +832,76 @@ class ResultsView:
         # Tworzymy etykietę podsumowania tutaj, po wyczyszczeniu
         self._create_summary_label(lp_text)
         
-        self._plot_chart('all') # Narysuj wykres "Ogółem"
+        # Jeśli brak historii oraz brak cookie – pokaż komunikat zamiast pustego wykresu
+        if (not history_data) and (not getattr(self.controller, 'login_cookie', None)):
+            try:
+                self.ax.clear()
+                self.ax.text(0.5, 0.5, 'Brak historii cen (wymagane cookie).',
+                             horizontalalignment='center', verticalalignment='center',
+                             transform=self.ax.transAxes, color='white')
+                self.chart_canvas.draw()
+            except Exception:
+                pass
+        else:
+            self._plot_chart('all') # Narysuj wykres "Ogółem"
         self._fill_listings()
         self._fill_summary()
-        # Spróbuj pobrać i wyświetlić obrazek jeśli został przekazany
+        # Spróbuj pobrać i wyświetlić obrazek: najpierw z cache, potem z sieci
         image_url = listings_data.get('image_url') if isinstance(listings_data, dict) else None
         if image_url:
-            # Pobierz obraz asynchronicznie i ustaw w UI w wątku głównym
-            def download_and_set():
+            # Cache hit
+            cached_img = self._image_cache.get(image_url)
+            if cached_img is not None:
                 try:
-                    import requests
-                    from PIL import Image, ImageTk
-                    from io import BytesIO
-                    resp = requests.get(image_url, timeout=15)
-                    if resp.status_code == 200 and resp.content:
-                        img = Image.open(BytesIO(resp.content))
-                        # Zmień rozmiar na sensowną wysokość (np. 120px) zachowując proporcje
-                        max_h = 120
-                        w, h = img.size
-                        if h > max_h:
-                            new_w = int(w * (max_h / float(h)))
-                            img = img.resize((new_w, max_h), Image.LANCZOS)
-                        tkimg = ImageTk.PhotoImage(img)
-                        def apply():
-                            try:
-                                self._current_item_image = tkimg
-                                self._image_label.config(image=self._current_item_image)
-                                self._image_label.pack_forget()
-                                self._image_label.pack(fill='x', padx=5, pady=(0,5))
-                                # Przesuń widok do góry, aby użytkownik zobaczył obrazek
-                                self.scrollable_content.yview_moveto(0)
-                            except Exception as e:
-                                print(f"Błąd ustawiania obrazka: {e}", file=sys.stderr)
-                        self.controller.root.after(0, apply)
+                    self._current_item_image = cached_img
+                    self._image_label.config(image=self._current_item_image, text='')
+                    self._image_label.pack_configure(pady=(5,8))
+                    self.scrollable_content.yview_moveto(0)
                 except Exception as e:
-                    print(f"Ostrzeżenie: nie udało się pobrać obrazka: {e}", file=sys.stderr)
-            import threading
-            threading.Thread(target=download_and_set, daemon=True).start()
+                    print(f"Błąd ustawiania obrazka z cache: {e}", file=sys.stderr)
+            else:
+                # Pobierz asynchronicznie; PhotoImage twórz w wątku głównym
+                def download_and_set():
+                    try:
+                        import requests
+                        from PIL import Image
+                        from io import BytesIO
+                        resp = requests.get(image_url, timeout=15)
+                        if resp.status_code == 200 and resp.content:
+                            img = Image.open(BytesIO(resp.content))
+                            # Zmień rozmiar na większą wysokość (np. 220px) zachowując proporcje
+                            max_h = 220
+                            w, h = img.size
+                            if h > max_h:
+                                new_w = int(w * (max_h / float(h)))
+                                img = img.resize((new_w, max_h), Image.LANCZOS)
+                            def apply():
+                                try:
+                                    from PIL import ImageTk
+                                    tkimg = ImageTk.PhotoImage(img)
+                                    # zapisz do cache (LRU)
+                                    self._image_cache[image_url] = tkimg
+                                    self._image_cache.move_to_end(image_url)
+                                    if len(self._image_cache) > self._image_cache_limit:
+                                        self._image_cache.popitem(last=False)
+                                    self._current_item_image = tkimg
+                                    self._image_label.config(image=self._current_item_image, text='')
+                                    self._image_label.pack_configure(pady=(5,8))
+                                    self.scrollable_content.yview_moveto(0)
+                                except Exception as e:
+                                    print(f"Błąd tworzenia/ustawiania PhotoImage: {e}", file=sys.stderr)
+                            self.controller.root.after(0, apply)
+                    except Exception as e:
+                        print(f"Ostrzeżenie: nie udało się pobrać obrazka: {e}", file=sys.stderr)
+                import threading
+                threading.Thread(target=download_and_set, daemon=True).start()
+        else:
+            # brak obrazka – pokaż placeholder
+            try:
+                self._image_label.config(image='', text='(Brak obrazka)')
+                self._current_item_image = None
+            except Exception:
+                pass
         # Przygotuj tabelę historii (nie pokazujemy dopóki użytkownik nie rozwinie)
         self._initial_history_sort()
         

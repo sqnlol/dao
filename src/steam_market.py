@@ -64,28 +64,59 @@ def _convert_price_to_float(price_str):
 # PARSOWANIE NAZW
 # ------------------------------------------------------------------
 def parse_market_name(market_hash_name):
-    name_parts = {'type': 'Unknown', 'name': market_hash_name, 'wear': None, 'stattrak': False}
-    if market_hash_name.startswith("StatTrak™"):
+    """Rozbija pełną nazwę rynku Steam na części: typ, skin (name), wear i flagę StatTrak™.
+
+    Obsługa kolejności dla noży: "★ StatTrak™ <Typ Noża> | <Skin> (<Wear>)" lub bez StatTrak™.
+    Jeśli brak skina (lista pusta), nazwa może być: "★ StatTrak™ <Typ Noża> (<Wear>)" albo bez wear jeśli nie występuje.
+    """
+    original = market_hash_name
+    name_parts = {'type': 'Unknown', 'name': original, 'wear': None, 'stattrak': False}
+
+    # 1. Gwiazdka (noże) – musi być przed StatTrak™ w naszej konwencji
+    is_knife = False
+    if market_hash_name.startswith("★ "):
+        is_knife = True
+        market_hash_name = market_hash_name[2:]  # usuń "★ "
+
+    # 2. StatTrak™ (po gwiazdce jeśli nóż)
+    if market_hash_name.startswith("StatTrak™ "):
         name_parts['stattrak'] = True
-        market_hash_name = market_hash_name.replace("StatTrak™ ", "")
+        market_hash_name = market_hash_name.replace("StatTrak™ ", "", 1)
+
+    # 3. Wear wzorzec
     for pattern, wear_name in WEAR_PATTERNS.items():
+        # Wear zwykle występuje na końcu w nawiasach, ale zachowujemy prostą heurystykę obecności patternu
         if pattern in market_hash_name:
             name_parts['wear'] = wear_name
             market_hash_name = market_hash_name.replace(f" {pattern}", "")
             break
-    if "★" in market_hash_name:
-        name_parts['type'] = "Knife"
-        name_parts['name'] = market_hash_name.replace("★ ", "")
-    elif "|" in market_hash_name:
+
+    # 4. Rozbicie typu i skina po separatorze " | "
+    if " | " in market_hash_name:
         parts = market_hash_name.split(" | ")
         if len(parts) == 2:
             name_parts['type'] = parts[0]
             name_parts['name'] = parts[1]
         else:
             name_parts['name'] = market_hash_name
-    elif " Case" in market_hash_name or " Capsule" in market_hash_name:
-         name_parts['type'] = "Container"
-         name_parts['name'] = market_hash_name
+            if is_knife:
+                name_parts['type'] = parts[0]
+    else:
+        # Brak separatora – dla noży bez skina traktuj całość jako typ
+        if is_knife:
+            name_parts['type'] = market_hash_name
+            name_parts['name'] = ""
+        else:
+            # Kontenery itd.
+            if " Case" in market_hash_name or " Capsule" in market_hash_name:
+                name_parts['type'] = "Container"
+                name_parts['name'] = market_hash_name
+            else:
+                name_parts['name'] = market_hash_name
+
+    # 5. Jeśli to nóż, a typ nie rozpoznany, ustaw ogólny typ
+    if is_knife and not name_parts['type']:
+        name_parts['type'] = 'Knife'
     return name_parts
 
 # ------------------------------------------------------------------
@@ -376,37 +407,233 @@ def fetch_market_listings(market_hash_name, login_cookie=None, count=10):
 # ------------------------------------------------------------------
 # API: LISTA WSZYSTKICH PRZEDMIOTÓW (DLA SUGESTII)
 # ------------------------------------------------------------------
-def fetch_all_csgo_items():
-    print("Rozpoczynanie pobierania pełnej listy przedmiotów z rynku Steam z filtrami...")
+def fetch_all_csgo_items(
+    output_file_path: str = "src/suggestions.txt",
+    page_size: int = 100,
+    resume: bool = True,
+    progress_path: str = "src/suggestions.progress.json",
+    partial_path: str = "src/suggestions.partial.txt",
+    log_callback=None,
+    cancel_event=None,
+):
+    """
+    Pobiera listę wszystkich przedmiotów CS2 (appid=730) z endpointu search/render
+    i zapisuje ją do pliku suggestions.txt. Zwraca listę nazw (posortowaną).
+
+    - Używa parametrów: appid=730, sortowanie po nazwie, kraj PL, język polish, waluta PLN.
+    - Paginacja po "start" i "count".
+    """
     all_items = set()
     start = 0
-    total_count = 1
-    query = 'appid:730 (tag_weapon OR tag_itemset OR tag_type_hands OR tag_type_knife OR tag_type_container)'
+    total_count = None
+    count = max(10, min(int(page_size), 100))
+    metrics = { 'retries': 0 }
+    # Przy wznowieniu: wczytaj postęp i dotychczas zebrane wpisy
+    partial_file = None
     try:
-        while start < total_count:
-            url = f"https://steamcommunity.com/market/search/render/?query={quote(query)}&start={start}&count=10&norender=1"
-            response = requests.get(url, headers=base_headers, timeout=30)
-            if response.status_code != 200:
-                print(f"Błąd API sugestii: {response.status_code}. Przerywanie.", file=sys.stderr)
+        if resume:
+            # start i zebrane elementy
+            import os
+            if os.path.exists(progress_path):
+                try:
+                    prog = json.load(open(progress_path, 'r', encoding='utf-8'))
+                    start = int(prog.get('next_start', 0))
+                    total_count = prog.get('total_count')
+                except Exception:
+                    start = 0
+            # wczytaj dotychczas zapisane wpisy do zbioru (unikalność)
+            if os.path.exists(partial_path):
+                try:
+                    with open(partial_path, 'r', encoding='utf-8') as pf:
+                        for ln in pf:
+                            nm = ln.strip()
+                            if nm:
+                                all_items.add(nm)
+                except Exception:
+                    pass
+        # otwórz plik partial do dopisywania
+        import os
+        os.makedirs(os.path.dirname(partial_path) or '.', exist_ok=True)
+        partial_file = open(partial_path, 'a', encoding='utf-8')
+    except Exception as e:
+        print(f"Ostrzeżenie: problem z inicjalizacją plików wznowienia: {e}", file=sys.stderr)
+
+    # Pomiar czasu dla ETA
+    start_time = time.time()
+    last_time = start_time
+    processed_items_for_eta = 0
+    try:
+        while True:
+            # Sprawdzenie anulowania przed pobraniem strony
+            if cancel_event is not None and getattr(cancel_event, 'is_set', lambda: False)():
+                if callable(log_callback):
+                    try:
+                        log_callback("Anulowano pobieranie (przed kolejnym żądaniem).")
+                    except Exception:
+                        pass
                 break
-            data = response.json()
-            if not data.get('success'):
-                print("API sugestii zwróciło błąd. Przerywanie.", file=sys.stderr)
+            params = {
+                'query': '',
+                'start': start,
+                'count': count,
+                'norender': 1,
+                'appid': 730,
+                'search_descriptions': 0,
+                'sort_column': 'name',
+                'sort_dir': 'asc',
+                'country': 'PL',
+                'language': 'polish',
+                'currency': 6
+            }
+            url = "https://steamcommunity.com/market/search/render/"
+            resp = _http_get_with_backoff(url, headers=base_headers, params=params, timeout=40, max_retries=2, initial_sleep=0.9, metrics=metrics)
+            if resp.status_code != 200:
+                print(f"Błąd API sugestii: {resp.status_code} {resp.reason}", file=sys.stderr)
+                # Zapisz stan do wznowienia
+                try:
+                    if resume:
+                        json.dump({'next_start': start, 'total_count': total_count}, open(progress_path, 'w', encoding='utf-8'))
+                except Exception:
+                    pass
                 break
-            total_count = data.get('total_count', 0)
-            results = data.get('results', [])
+            try:
+                data = resp.json()
+            except json.JSONDecodeError:
+                print("Błąd dekodowania JSON dla sugestii.", file=sys.stderr)
+                try:
+                    if resume:
+                        json.dump({'next_start': start, 'total_count': total_count}, open(progress_path, 'w', encoding='utf-8'))
+                except Exception:
+                    pass
+                break
+            if not isinstance(data, dict) or data.get('success') is False:
+                print("API sugestii zwróciło błąd/niepowodzenie.", file=sys.stderr)
+                try:
+                    if resume:
+                        json.dump({'next_start': start, 'total_count': total_count}, open(progress_path, 'w', encoding='utf-8'))
+                except Exception:
+                    pass
+                break
+
+            total_count = data.get('total_count', 0) if total_count is None else total_count
+            results = data.get('results') or []
             if not results:
-                break
+                # Brak wyników na tej stronie – zakończ jeżeli doszliśmy do końca
+                if total_count is not None and start >= total_count:
+                    break
+                else:
+                    # ostrożny fallback – przerwij, by uniknąć pętli
+                    print("Brak wyników na stronie, przerywam.", file=sys.stderr)
+                    break
+
+            newly_added = 0
             for item in results:
-                all_items.add(item['market_hash_name'])
-            start += 10
-            print(f"Pobrano: {len(all_items)} z {total_count}")
-            time.sleep(1) 
-        print(f"Pobieranie zakończone. Łącznie {len(all_items)} unikalnych przedmiotów.")
-        return sorted(list(all_items))
+                # Sprawdzenie anulowania wewnątrz pętli przetwarzania wyników
+                if cancel_event is not None and getattr(cancel_event, 'is_set', lambda: False)():
+                    if callable(log_callback):
+                        try:
+                            log_callback("Anulowano pobieranie (przetwarzanie wyników strony).")
+                        except Exception:
+                            pass
+                    break
+                name = item.get('hash_name') or item.get('market_hash_name') or item.get('name')
+                if isinstance(name, str):
+                    nm = name.strip()
+                    if nm and nm not in all_items:
+                        all_items.add(nm)
+                        if partial_file:
+                            try:
+                                partial_file.write(nm + '\n')
+                            except Exception:
+                                pass
+                        newly_added += 1
+
+            # flush i zapis progresu
+            try:
+                if partial_file:
+                    partial_file.flush()
+                if resume:
+                    json.dump({'next_start': start + len(results), 'total_count': total_count}, open(progress_path, 'w', encoding='utf-8'))
+            except Exception:
+                pass
+
+            start += len(results)
+            # Jeśli wiemy już total_count, przerwij po osiągnięciu końca
+            if total_count is not None and start >= total_count:
+                break
+            # logowanie postępu
+            try:
+                if callable(log_callback):
+                    # Oblicz ETA (tylko jeśli znamy total_count i mamy prędkość > 0)
+                    now = time.time()
+                    elapsed = now - start_time
+                    current_count = len(all_items)
+                    eta_seconds = -1
+                    if total_count and total_count > 0 and current_count > 0:
+                        speed = current_count / elapsed  # items per second
+                        remaining = max(0, total_count - current_count)
+                        if speed > 0:
+                            eta_seconds = int(remaining / speed)
+                    # Przyjazny format ETA
+                    if eta_seconds >= 0:
+                        mins = eta_seconds // 60
+                        secs = eta_seconds % 60
+                        eta_str = f"ETA {mins:02d}:{secs:02d}"
+                    else:
+                        eta_str = "ETA ?"
+                    # Log tekstowy z ETA
+                    log_callback(f"Sugestie: {current_count} / {total_count or '?'} (offset {start - len(results)}), +{newly_added} | retries={metrics.get('retries',0)} | {eta_str}")
+                    # Log strukturalny dla progresu (prefiks PROGRESS) rozszerzony o ETA
+                    total_for_progress = total_count if total_count is not None else 0
+                    log_callback(f"PROGRESS {current_count} {total_for_progress} {metrics.get('retries',0)} {eta_seconds}")
+            except Exception:
+                pass
+            # krótka pauza dla uprzejmości względem API i ograniczeń
+            # Sprawdzenie anulowania przed uśpieniem
+            if cancel_event is not None and getattr(cancel_event, 'is_set', lambda: False)():
+                if callable(log_callback):
+                    try:
+                        log_callback("Anulowano pobieranie (po stronie).")
+                    except Exception:
+                        pass
+                break
+            time.sleep(random.uniform(0.45, 0.9))
+
+        items_sorted = sorted(all_items)
+        # Finalizacja: jeśli ukończono, przenieś partial -> output i usuń progress
+        if output_file_path and (total_count is None or start >= (total_count or 0)):
+            try:
+                import os
+                os.makedirs(os.path.dirname(output_file_path) or '.', exist_ok=True)
+                # Nadpisz ostateczny plik uporządkowaną listą (deterministyczny wynik)
+                with open(output_file_path, 'w', encoding='utf-8') as f:
+                    for n in items_sorted:
+                        f.write(n + '\n')
+                # usuń partial i progress
+                try:
+                    if resume:
+                        if os.path.exists(progress_path):
+                            os.remove(progress_path)
+                        if os.path.exists(partial_path):
+                            os.remove(partial_path)
+                except Exception:
+                    pass
+                print(f"Zapisano sugestie do pliku: {output_file_path} (pozycji: {len(items_sorted)})")
+            except Exception as e:
+                print(f"Błąd zapisu pliku sugestii: {e}", file=sys.stderr)
+        if cancel_event is not None and getattr(cancel_event, 'is_set', lambda: False)():
+            # Anulowano – zwróć None aby kontroler mógł zasygnalizować przerwanie
+            return None
+        return items_sorted
     except Exception as e:
         print(f"Błąd sieci (sugestie): {e}", file=sys.stderr)
         return None
+    finally:
+        try:
+            if partial_file:
+                partial_file.close()
+        except Exception:
+            pass
 
 # ------------------------------------------------------------------
 # DODATKOWE API: priceoverview i itemordershistogram

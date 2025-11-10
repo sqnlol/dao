@@ -8,7 +8,30 @@ Wartość to LISTA skinów dla tej broni (np. ["Redline", "Asiimov"]).
 Dla skrzynek, wartość to pusta lista [].
 """
 
-SKIN_DATA = {
+import json, os, sys
+
+GENERATED_JSON = os.path.join('src', 'skin_list_generated.json')
+
+def _load_generated_skin_data():
+    if not os.path.exists(GENERATED_JSON):
+        return None
+    try:
+        with open(GENERATED_JSON, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            # Walidacja minimalna: oczekujemy dict[str, list]
+            if isinstance(data, dict):
+                cleaned = {}
+                for k, v in data.items():
+                    if isinstance(k, str) and isinstance(v, list):
+                        cleaned[k] = [s for s in v if isinstance(s, str)]
+                return cleaned
+    except Exception as e:
+        print(f"Błąd wczytywania {GENERATED_JSON}: {e}", file=sys.stderr)
+    return None
+
+_GENERATED = _load_generated_skin_data()
+
+SKIN_DATA = _GENERATED if _GENERATED else {
     # --- Karbany ---
    "AK-47": [
         "Aquamarine Revenge",
@@ -718,6 +741,22 @@ SKIN_DATA = {
     "Takeover",
     "Violet"
 ],
+    "MP7": [
+        "Abyssal Apparition",
+        "Armor Core",
+        "Bloodsport",
+        "Cirrus",
+        "Fade",
+        "Full Stop",
+        "Impire",
+        "Just Smile",
+        "Motherboard",
+        "Neon Ply",
+        "Olive Plaid",
+        "Powercore",
+        "Skulls",
+        "Special Delivery"
+    ],
 "Dual Berettas": [
         "Angel Eyes",
         "Anodized Navy",
@@ -1195,6 +1234,28 @@ SKIN_DATA = {
     "Ultralight"
 ],
 
+    # --- Noże (modele; listy pustych skinów na start) ---
+    "Bayonet": ["Lore"],
+    "M9 Bayonet": ["Gamma Doppler"],
+    "Karambit": ["Doppler"],
+    "Flip Knife": ["Marble Fade"],
+    "Gut Knife": ["Autotronic"],
+    "Huntsman Knife": ["Fade"],
+    "Falchion Knife": ["Tiger Tooth"],
+    "Bowie Knife": ["Crimson Web"],
+    "Shadow Daggers": ["Tiger Tooth"],
+    "Navaja Knife": ["Doppler"],
+    "Stiletto Knife": ["Tiger Tooth"],
+    "Talon Knife": ["Fade"],
+    "Ursus Knife": ["Tiger Tooth"],
+    "Classic Knife": ["Fade"],
+    "Paracord Knife": ["Case Hardened"],
+    "Survival Knife": ["Doppler"],
+    "Nomad Knife": ["Fade"],
+    "Skeleton Knife": ["Case Hardened"],
+    "Butterfly Knife": ["Tiger Tooth"],
+    "Kukri Knife": ["Doppler"],
+
     # --- Skrzynki (pusta lista oznacza brak drugiego wyboru) ---
     "CS:GO Weapon Case": [],
     "Operation Bravo Case": [],
@@ -1233,27 +1294,57 @@ SKIN_DATA = {
 
 # Kategoryzacja broni (ułatwia selekcję w GUI)
 # Klucz: polska nazwa kategorii -> lista kluczy z SKIN_DATA
-WEAPON_CATEGORIES = {
-    "Karabiny": [
-        "AK-47", "M4A4", "M4A1-S", "FAMAS", "Galil AR", "AUG",
-        "G3SG1", "SCAR-20", "SG 553", "SSG 08", "AWP"
-    ],
-    "Pistolety": [
-        "Desert Eagle", "USP-S", "Glock-18", "Five-SeveN", "Tec-9",
-        "CZ75-Auto", "P2000", "Dual Berettas", "P250", "R8 Revolver"
-    ],
-    "SMG": [
-        "MP9", "MAC-10", "MP5-SD", "PP-Bizon", "P90", "UMP-45"
-    ],
-    "Strzelby": [
-        "MAG-7", "Nova", "Sawed-Off", "XM1014"
-    ],
-    "Ciężkie": [
-        "M249", "Negev"
-    ],
-    "Skrzynki": [k for k in SKIN_DATA.keys() if k.endswith('Case')],
-    "Noże": [
-        # Placeholdery — brak dedykowanych wpisów noży w SKIN_DATA teraz.
-        # Możesz dodać klucze typu 'Karambit', 'M9 Bayonet' z listami skinów.
-    ]
-}
+def _build_categories(data: dict):
+    # Prosta heurystyka; jeśli brak wygenerowanych danych użyj statycznych kategorii
+    if data is SKIN_DATA and _GENERATED is None:
+        # Statyczne kategorie po zmianie nazewnictwa + wydzielenie snajperek
+        return {
+            "Karabin": [
+                "AK-47", "M4A4", "M4A1-S", "FAMAS", "Galil AR", "AUG", "SG 553"
+            ],
+            "Karabin snajperski": [
+                "AWP", "G3SG1", "SCAR-20", "SSG 08"
+            ],
+            "Pistolet": [
+                "Desert Eagle", "USP-S", "Glock-18", "Five-SeveN", "Tec-9",
+                "CZ75-Auto", "P2000", "Dual Berettas", "P250", "R8 Revolver"
+            ],
+            "PM": [
+                "MP9", "MAC-10", "MP5-SD", "MP7", "PP-Bizon", "P90", "UMP-45"
+            ],
+            "Strzelba": [
+                "MAG-7", "Nova", "Sawed-Off", "XM1014"
+            ],
+            "Karabin maszynowy": [
+                "M249", "Negev"
+            ],
+            "Skrzynki": [k for k in data.keys() if k.endswith('Case')],
+            "Nóż": [
+                "Bayonet", "M9 Bayonet", "Karambit", "Flip Knife", "Gut Knife",
+                "Huntsman Knife", "Falchion Knife", "Bowie Knife", "Shadow Daggers",
+                "Navaja Knife", "Stiletto Knife", "Talon Knife", "Ursus Knife",
+                "Classic Knife", "Paracord Knife", "Survival Knife", "Nomad Knife",
+                "Skeleton Knife", "Butterfly Knife", "Kukri Knife"
+            ]
+        }
+    # Jeśli mamy wygenerowane dane – kategorie bardziej dynamiczne na podstawie znanych prefiksów
+    rifles = [k for k in data.keys() if k in {"AK-47", "M4A4", "M4A1-S", "FAMAS", "Galil AR", "AUG", "SG 553"}]
+    snipers = [k for k in data.keys() if k in {"AWP", "G3SG1", "SCAR-20", "SSG 08"}]
+    pistols = [k for k in data.keys() if k in {"Desert Eagle", "USP-S", "Glock-18", "Five-SeveN", "Tec-9", "CZ75-Auto", "P2000", "Dual Berettas", "P250", "R8 Revolver"}]
+    smgs = [k for k in data.keys() if k in {"MP9", "MAC-10", "MP5-SD", "MP7", "PP-Bizon", "P90", "UMP-45"}]
+    shotguns = [k for k in data.keys() if k in {"MAG-7", "Nova", "Sawed-Off", "XM1014"}]
+    heavies = [k for k in data.keys() if k in {"M249", "Negev"}]
+    cases = [k for k in data.keys() if k.endswith('Case')]
+    knives = [k for k in data.keys() if 'Knife' in k or 'Bayonet' in k or 'Karambit' in k]
+    return {
+        "Karabin": sorted(rifles),
+        "Karabin snajperski": sorted(snipers),
+        "Pistolet": sorted(pistols),
+        "PM": sorted(smgs),
+        "Strzelba": sorted(shotguns),
+        "Karabin maszynowy": sorted(heavies),
+        "Skrzynki": sorted(cases),
+        "Nóż": sorted(knives),
+    }
+
+WEAPON_CATEGORIES = _build_categories(SKIN_DATA)

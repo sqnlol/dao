@@ -2,3 +2,5 @@ requests
 pyinstaller
 matplotlib
 Pillow
+selenium
+webdriver-manager
