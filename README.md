@@ -62,18 +62,53 @@ CS2 Skin Analyzer/
 ### Warstwa GUI
 | Plik | Rola | Kluczowe Elementy |
 | :--- | :--- | :--- |
-| `login_view.py` | Pobranie i zapis cookie `steamLoginSecure`. | Pole wejściowe cookie, walidacja, przekazanie do kontrolera. |
-| `search_view.py` | Wybór przedmiotu z listy i uruchomienie pobierania. | Wątek `_search_worker`, logi, parsowanie nazwy, zapis do DB. |
-| `results_view.py` | Prezentacja wyników: wykres, oferty, historia, paginacja. | Cache stron, prefetch, overlay, dynamiczne etykiety. |
-| `app.py` | Główny kontroler i pętla odczytu kolejki. | `switch_view`, `process_queue`, dystrybucja komunikatów. |
+| `login_view.py` | Logowanie (ręczne i automatyczne) i zapis cookie `steamLoginSecure`. | Pole cookie; Selenium (Edge/Chrome) do logowania i automatycznego pobrania cookie; pobieranie nazwy konta; statusy. |
+| `search_view.py` | Wybór przedmiotu i uruchomienie pobierania. | Filtry (StatTrak™, wear), taksonomia (w tym noże i „Vanilla”); nagłówek z powitaniem i trybem cookie; autouzupełnianie on‑demand z postępem/anulowaniem; logi. |
+| `results_view.py` | Prezentacja wyników: wykres, oferty, historia, obrazek. | Interaktywny hover (dymek + zielona kropka); zakresy czasu; paginacja z cache/prefetch; overlay podczas ładowania; sortowalna historia; sekcja obrazka z LRU cache. |
+| `app.py` | Kontroler, stan sesji, ikony i pętla kolejki. | Ustawienie ikon PNG/ICO; `switch_view`; `process_queue` (obsługa log/progress/error/success); integracja z pobieraniem sugestii. |
+
+#### Szczegółowe funkcje GUI
+
+- `login_view.py`
+    - Ręczne podanie cookie `steamLoginSecure` lub start automatycznego logowania przez przeglądarkę (Selenium: Edge → Chrome fallback, wyciszone logi).
+    - Po zalogowaniu automatyczne wykrycie cookie i zapis do kontrolera; pobranie nazwy konta (community/store) i przejście do wyszukiwania.
+    - Wyśrodkowany nagłówek z dużym logo i tytułem; komunikaty statusu (kolory: gray/orange/green/red).
+
+- `search_view.py`
+    - Nagłówek: „Witaj, <nazwa>”, przycisk Wyloguj, etykieta „Brak Cookie – funkcjonalność ograniczona” (dynamicznie ukrywana/pokazywana).
+    - Taksonomia: kategorie broni (w tym „Snajperskie”), obsługa noży ze znakiem „★” i wariantem „Vanilla” (bez separatora i wear), MP7.
+    - Filtry: StatTrak™, wear (włączane/wyłączane zależnie od typu/skin).
+    - Autouzupełnianie on‑demand: przycisk aktualizacji, pasek postępu z ETA, etykieta inline, możliwość anulowania; zapis do `src/suggestions.txt`.
+    - Logi operacyjne w dolnym panelu; wątki do pobierania danych; przekazanie wyników przez kolejkę do kontrolera.
+
+- `results_view.py`
+    - Wykres: zakresy „Tydzień/Miesiąc/Ogółem”; interaktywny hover z dymkiem (data+price), auto‑flip przy krawędziach i zielona kropka podświetlająca punkt.
+    - Oferty: paginacja 10/strona, cache stron, prefetch kolejnej, stały kontener z półprzezroczystym overlayem podczas ładowania.
+    - Podsumowanie: najniższa i najwyższa historyczna cena (z datą).
+    - Historia: rozwijana tabela, sortowanie po Cenie i Dacie (klik w nagłówek) z ikonami kierunku i domyślnie najnowszymi na górze.
+    - Obrazek przedmiotu: async pobieranie, skalowanie, LRU cache w pamięci (fallback: placeholder).
+
+- `app.py`
+    - Stan sesji: `login_cookie`, `steam_name`.
+    - Ikony aplikacji: `iconphoto` (PNG) i generowanie wielorozmiarowego `.ico` + `iconbitmap` (Windows).
+    - Pętla `process_queue`: odbiór komunikatów z wątków (log/progress/error/success) i delegacja do widoków; wstrzyknięcie `image_url` do `listings_data`.
+    - Obsługa pobierania autouzupełniania (start/aktualizacja/anulowanie) i przekazanie listy do `search_view.set_suggestions`.
 
 ### Warstwa Backend / API
 | Moduł | Funkcja | Szczegóły |
 | :--- | :--- | :--- |
-| `steam_market.get_price_history` | Pobieranie historii cen. | Wymaga cookie, parsowanie dat (UTC). |
-| `steam_market.get_market_listings` | Pobieranie pakietu ofert + metryki. | JSON→HTML fallback, sortowanie, min-cena z listingu. |
-| `steam_market.get_market_listings_page` | Stronicowanie on-demand. | Parametry start/count; integracja z ResultsView. |
-| `steam_market.parse_market_name` | Standaryzacja nazwy. | Typ, wear, StatTrak. |
+| `steam_market.get_price_history` | Pobieranie historii cen. | Wymaga `steamLoginSecure`; zwraca listę rekordów: `sale_timestamp`, `sale_date_str`, `price`, `sales_count`. |
+| `steam_market.get_market_listings` | Pobieranie pakietu ofert + metryki. | Parsowanie JSON (fallback HTML); `lowest_price_float`, `total_count`, `listings` z polską lokalizacją (country=PL, language=polish, currency=6). |
+| `steam_market.get_market_listings_page` | Stronicowanie on‑demand. | Paginacja start/count; spójna z GUI cache/prefetch; aktualizuje `total_count` i ceny min. |
+| `steam_market.parse_market_name` | Standaryzacja nazwy rynku. | Typ, nazwa bazowa, wear; obsługa StatTrak™ i formatu noży (gwiazdka, Vanilla bez wear). |
+| `steam_market.fetch_all_csgo_items` | Pełna lista pozycji dla autouzupełniania. | Zapis do `src/suggestions.txt`; tryb wznawiania, pliki postępu, callback z komunikatami `PROGRESS`, obsługa anulowania. |
+| `steam_market.get_item_image_url` | URL obrazka dla pozycji. | Używany do asynchronicznego pobrania miniatury w `ResultsView`. |
+
+#### Zasady i stabilność API
+- Nagłówki przeglądarkowe i stały `User-Agent` wymagane dla spójności odpowiedzi Steam.
+- Lokalizacja wymuszona: `country='PL'`, `language='polish'`, `currency=6` (PLN).
+- Ponawianie przy 429/503: exponential backoff + jitter; logowanie metryk (strony, retry).
+- Historia cen zwraca `None` przy braku/wygaśnięciu cookie – GUI prezentuje komunikat zamiast wykrzaczać wykres.
 
 ### Warstwa Danych
 | Moduł | Funkcja | Szczegóły |
@@ -81,6 +116,16 @@ CS2 Skin Analyzer/
 | `database.init_db` | Inicjalizacja schematu. | Tabela `sales` + unikaty. |
 | `database.add_sales` | Dodanie rekordów. | Ignorowanie duplikatów `IntegrityError`. |
 | `database.get_sales_for_item` | Odczyt danych historycznych. | Sortowanie chronologiczne. |
+
+### Kontrakty komunikatów i kolejki
+- Wątki robocze przekazują do kontrolera słowniki o kluczu `status` ∈ {`log`, `error`, `success`, `progress`}.
+- `success` musi zawierać: `item_name`, `history_data`, `listings_data` (opcjonalnie `image_url`).
+- `progress`: pole `progress` ze strukturą `{ current, total, retries, eta }` (sekundy); GUI aktualizuje pasek i etykietę postępu.
+- Kontroler (`app.py`) dystrybuuje komunikaty do widoków, w tym wstrzykuje `image_url` do `listings_data` przed przełączeniem na Results.
+
+### Ikony i branding
+- Ikona PNG ustawiana przez `iconphoto`; generowanie wielorozmiarowego `.ico` i ustawienie `iconbitmap` (Windows taskbar).
+- LoginView: duże logo + tytuł, wyśrodkowane; SearchView: nagłówek z powitaniem i statusem cookie.
 
 ### Mechanizmy Wydajności / Stabilności
 * Exponential backoff + jitter dla kodów 429/503.
