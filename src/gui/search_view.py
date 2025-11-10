@@ -111,7 +111,8 @@ class SearchView:
         info_frame = ttk.Frame(self.frame, style='Dark.TFrame')
         info_frame.grid(row=1, column=0, sticky='ew', pady=(0, 6))
         info_frame.grid_columnconfigure(0, weight=1)
-        self.version_label = ttk.Label(info_frame, text="Wersja: 0.1.0", style='Dark.TLabel')
+        # Aktualizacja wersji aplikacji wyświetlanej w pasku informacyjnym
+        self.version_label = ttk.Label(info_frame, text="Wersja: 0.4.5", style='Dark.TLabel')
         self.version_label.pack(side='left', padx=8)
         self.suggestions_label = ttk.Label(info_frame, text="Sugestie: ładowanie...", style='Dark.TLabel')
         self.suggestions_label.pack(side='left', padx=8)

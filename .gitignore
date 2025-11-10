@@ -21,5 +21,4 @@ steam_market.db
 
 # Pliki budowy
 /build/
-.spec
 *.spec
