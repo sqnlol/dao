@@ -145,6 +145,16 @@ CS2 Skin Analyzer/
 | **Sortowanie Cen Ofert** | Rosnąco po cenie (None na końcu). | Ukończono |
 | **Spójność Licznika Ofert** | "Łącznie ofert" używa bieżącego `total_count`. | Ukończono |
 | **Prefetch Logi** | Logi informujące cache vs sieć + status prefetchu. | Ukończono |
+| **Interaktywny hover na wykresie** | Dymek z datą i ceną, dynamiczne pozycjonowanie (flip przy krawędziach), zielone podświetlenie punktu. | Ukończono |
+| **Automatyczne logowanie przez przeglądarkę** | Selenium otwiera Edge/Chrome; po zalogowaniu automatycznie pobiera cookie `steamLoginSecure` (limit ~7 min), wyciszone logi. | Ukończono |
+| **Pobranie nazwy konta** | Po zalogowaniu pobierana jest nazwa konta ze Steam (`steamcommunity`/`store`) i wyświetlana jako „Witaj, <nazwa>”. | Ukończono |
+| **Branding i ikony** | Logo aplikacji w oknie; generowanie wielorozmiarowego `.ico`; ustawienie `iconphoto`/`iconbitmap`; duży nagłówek i wyśrodkowanie w LoginView. | Ukończono |
+| **UI: powitanie i tryb cookie** | Nagłówek w SearchView: „Witaj, …”, przycisk Wyloguj, dynamiczna etykieta „Brak Cookie – funkcjonalność ograniczona”. | Ukończono |
+| **Taxonomia i nazewnictwo** | Refaktor kategorii (oddzielne „Snajperskie”), dodano MP7, pełen zestaw noży z gwiazdką „★”, obsługa wariantu „Vanilla” (bez wear i separatora). | Ukończono |
+| **Obrazek przedmiotu** | Sekcja obrazu w ResultsView: asynchroniczne pobieranie i skalowanie, LRU cache obrazków, placeholder gdy brak. | Ukończono |
+| **Sortowanie tabeli historii** | Klikalne nagłówki Cena/Data z przełączaniem kierunku i strzałkami; domyślnie najnowsze na górze. | Ukończono |
+| **Autouzupełnianie on‑demand** | Przycisk „Zaktualizuj listę przedmiotów”, pasek postępu + ETA i anulowanie; zapis do `src/suggestions.txt`. | Ukończono |
+| **Komunikat o braku historii** | Na wykresie pojawia się informacja „Brak historii cen (wymagane cookie)” gdy brak danych/cookie. | Ukończono |
 
 ### CS2 Skin Analyzer v0.3 (Tydzień 3):
 
