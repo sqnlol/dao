@@ -57,6 +57,11 @@ class LoginView:
         self.browser_login_button = ttk.Button(content_frame, text="Zaloguj przez przeglądarkę (automatycznie pobierz cookie)", command=self.start_steam_login_flow)
         self.browser_login_button.pack(pady=(0, 10))
 
+        # Zapamiętaj mnie (persist cookie do czasu ręcznego wylogowania)
+        self.remember_me_var = tk.BooleanVar(value=False)
+        self.remember_me_cb = ttk.Checkbutton(content_frame, text="Zapamiętaj mnie na tym urządzeniu", variable=self.remember_me_var)
+        self.remember_me_cb.pack(pady=(0, 6))
+
         self.login_status = ttk.Label(content_frame, text="Tryb bez cookie: ograniczony (historia cen niedostępna).", foreground='gray')
         self.login_status.pack(pady=5)
         
@@ -81,6 +86,12 @@ class LoginView:
         # Pełny tryb z cookie
         self.controller.login_cookie = cookie_value
         self.controller.steam_name = "Użytkowniku Steam"
+        # Persistuj sesję jeśli zaznaczono "Zapamiętaj mnie"
+        try:
+            if self.remember_me_var.get() and hasattr(self.controller, 'persist_auth_state'):
+                self.controller.persist_auth_state()
+        except Exception:
+            pass
         self.controller.switch_view("search")
 
     # ----------------------
@@ -308,6 +319,12 @@ class LoginView:
                 # Zamknij przeglądarkę
                 try:
                     driver.quit()
+                except Exception:
+                    pass
+                # Persistuj sesję jeśli zaznaczono "Zapamiętaj mnie"
+                try:
+                    if self.remember_me_var.get() and hasattr(self.controller, 'persist_auth_state'):
+                        self.controller.persist_auth_state()
                 except Exception:
                     pass
                 # Przejdź do widoku wyszukiwania

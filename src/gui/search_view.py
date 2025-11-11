@@ -274,13 +274,11 @@ class SearchView:
         has_cookie = bool(getattr(self.controller, 'login_cookie', None))
         try:
             if has_cookie:
-                # Ukryj etykietę o braku cookie, ale zachowaj layout grid
-                if self.cookie_mode_label.winfo_ismapped():
-                    self.cookie_mode_label.grid_remove()
+                # Ukryj etykietę niezależnie od aktualnego stanu mapowania (ważne przy pierwszym wyświetleniu)
+                self.cookie_mode_label.grid_remove()
             else:
                 # Pokaż ponownie w tej samej komórce (row=0, col=0)
-                if not self.cookie_mode_label.winfo_ismapped():
-                    self.cookie_mode_label.grid()
+                self.cookie_mode_label.grid()
         except Exception:
             pass
 
@@ -339,13 +337,28 @@ class SearchView:
     def update_progress_bar(self, current: int, total: int, retries: int, eta: int = -1):
         try:
             if total and total > 0:
-                percent = max(0, min(100, int((current / float(total)) * 100)))
-                self.progress_bar.config(mode='determinate', maximum=100)
-                self.progress_var.set(percent)
+                # Pasek postępu pokazuje realny X/TOTAL (maksimum = total, wartość = current)
+                safe_total = max(1, int(total))
+                safe_current = max(0, min(int(current), safe_total))
+                self.progress_bar.config(mode='determinate', maximum=safe_total)
+                self.progress_var.set(safe_current)
+                # Ustaw procent na pasku zadań (taskbar) poprzez tytuł okna
+                try:
+                    percent_val = int((safe_current / float(safe_total)) * 100)
+                    if hasattr(self.controller, 'set_taskbar_percent'):
+                        self.controller.set_taskbar_percent(percent_val)
+                except Exception:
+                    pass
             else:
                 # nieznane total -> tryb indeterminate
                 self.progress_bar.config(mode='indeterminate')
                 self.progress_bar.start(80)
+                # Przy nieznanym total usuń procent z tytułu
+                try:
+                    if hasattr(self.controller, 'set_taskbar_percent'):
+                        self.controller.set_taskbar_percent(None)
+                except Exception:
+                    pass
             self.show_progress_bar(True)
             # log bardziej czytelny dla retries
             # Sformatuj ETA jako HH:MM:SS
@@ -358,6 +371,8 @@ class SearchView:
                 eta_hms = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             # Ustaw etykietę postępu między przyciskami
             total_disp = (str(total) if (isinstance(total, int) and total > 0) else "?")
+            # Dodatkowo procent do etykiety (obliczany tylko gdy znamy total)
+            # Usunięty procent z etykiety (widoczny tylko w tytule okna)
             self.inline_progress_var.set(f"[Postęp: {current} / {total_disp} | ETA: {eta_hms}]")
             # Nie logujemy postępu do logów – etykieta między przyciskami wystarcza
         except Exception:
@@ -397,6 +412,12 @@ class SearchView:
     def _go_back_to_login(self):
         """Przełącza do ekranu logowania z zachowaniem obecnego cookie w polu, umożliwiając jego zmianę."""
         try:
+            # Wyczyść zapamiętaną sesję ('remember me') przy ręcznym wylogowaniu
+            try:
+                if hasattr(self.controller, 'clear_auth_state'):
+                    self.controller.clear_auth_state()
+            except Exception:
+                pass
             current_cookie = getattr(self.controller, 'login_cookie', '') or ''
             self.controller.switch_view('login')
             # wypełnij pole cookie jeśli login_view istnieje i ma cookie_entry

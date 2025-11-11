@@ -21,6 +21,8 @@ class MarketApp:
         self.root.title("CS2 Skin Analyzer")
         self.root.geometry("850x650") 
         self.root.minsize(width=800, height=600) 
+        # Zachowaj bazowy tytuł do aktualizacji taskbara o procenty
+        self._base_title = self.root.title()
 
         # Ustaw ikonę okna (Windows taskbar + tytuł)
         try:
@@ -83,8 +85,164 @@ class MarketApp:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         
         # --- Start aplikacji ---
-        self.switch_view("login")
+        # Autologin jeśli pamiętany użytkownik
+        self._attempt_auto_login()
         self.process_queue()
+        # Tymczasowo: automatyczny retry na pobieranie sugestii co 10–15 minut
+        try:
+            self._start_periodic_suggestions_fetch()
+        except Exception:
+            pass
+
+    def set_taskbar_percent(self, percent: int | None):
+        """Ustawia procent w tytule okna (widoczny jako tekst na pasku zadań).
+
+        percent=None lub spoza [0,100] przywraca bazowy tytuł bez procentów.
+        """
+        try:
+            if percent is None or not isinstance(percent, int) or percent < 0 or percent > 100:
+                self.root.title(self._base_title)
+            else:
+                self.root.title(f"{self._base_title} [{percent}%]")
+        except Exception:
+            # Bezpieczny no-op na nieobsługiwanych platformach/sytuacjach
+            pass
+
+    # ------------------------------------------------------------------
+    # PAMIĘTANIE SESJI
+    # ------------------------------------------------------------------
+    def _auth_state_path(self):
+        """Zwraca ścieżkę do pliku auth_state w katalogu użytkownika (LocalAppData)."""
+        try:
+            # Windows: %LOCALAPPDATA% preferowane; fallback na HOME
+            local_appdata = os.environ.get('LOCALAPPDATA') or os.path.expanduser('~')
+            target_dir = os.path.join(local_appdata, 'CS2SkinAnalyzer')
+            os.makedirs(target_dir, exist_ok=True)
+            return os.path.join(target_dir, 'auth_state.json')
+        except Exception:
+            # Ostateczny fallback: bieżący katalog (niezalecane, ale gwarantuje działanie)
+            return 'auth_state.json'
+
+    def _attempt_auto_login(self):
+        """Jeśli istnieje zapamiętana sesja (remember me), wczytaj ją i przełącz do search."""
+        path = self._auth_state_path()
+        try:
+            if os.path.exists(path):
+                import json
+                data = json.load(open(path, 'r', encoding='utf-8'))
+                cookie = data.get('login_cookie')
+                steam_name = data.get('steam_name') or 'Użytkowniku Steam'
+                if cookie and isinstance(cookie, str) and len(cookie) > 10:
+                    # Walidacja cookie: lekki ping do endpointu priceoverview (nie wymaga pełnej historii)
+                    if self._validate_cookie(cookie):
+                        self.login_cookie = cookie
+                        self.steam_name = steam_name
+                        print("Auto-login: przywrócono sesję zapamiętanego użytkownika (cookie OK).")
+                        self.switch_view('search')
+                        return
+                    else:
+                        print("Auto-login: zapisane cookie nieprawidłowe lub wygasłe.")
+                        # Przekaż do login view z prefill cookie (ułatwia poprawę) + komunikat
+                        self.switch_view('login')
+                        lv = self.views.get('login')
+                        if lv and hasattr(lv, 'cookie_entry'):
+                            try:
+                                lv.cookie_entry.delete(0, tk.END)
+                                lv.cookie_entry.insert(0, cookie)
+                                if hasattr(lv, 'login_status'):
+                                    lv.login_status.config(text="Zapisane cookie wygasło – wprowadź nowe lub zaloguj przez przeglądarkę.", foreground='orange')
+                            except Exception:
+                                pass
+                        return
+        except Exception as e:
+            print(f"Auto-login nieudany: {e}", file=sys.stderr)
+        # jeśli brak auto-login -> ekran logowania
+        self.switch_view('login')
+
+    def _validate_cookie(self, cookie: str) -> bool:
+        """Lekka walidacja cookie przez wywołanie prostego endpointu wymagającego zalogowania.
+
+        Używamy pricehistory dla prostego, małego przedmiotu (szybki response) – jeśli success=False lub błąd, traktujemy jako nieważne.
+        Chroni przed bezsensownym auto-loginem z wygasłym ciasteczkiem.
+        """
+        try:
+            if not cookie or len(cookie) < 10:
+                return False
+            test_item = 'P250 | Sand Dune (Field-Tested)'  # tani, częsty przedmiot
+            headers = steam_market.base_headers.copy()
+            headers['Cookie'] = f'steamLoginSecure={cookie}'
+            import requests
+            url = f"https://steamcommunity.com/market/pricehistory/?appid=730&market_hash_name={requests.utils.quote(test_item)}"
+            resp = requests.get(url, headers=headers, timeout=6)
+            if resp.status_code != 200:
+                return False
+            data = resp.json()
+            # Jeśli success True i ma pole prices (nawet pusta lista), uznaj cookie za ważne
+            return bool(data.get('success'))
+        except Exception:
+            return False
+
+    def persist_auth_state(self):
+        """Zapisuje bieżącą sesję do pliku jeśli jest login_cookie (remember me)."""
+        path = self._auth_state_path()
+        try:
+            if self.login_cookie and isinstance(self.login_cookie, str) and len(self.login_cookie) > 10:
+                import json
+                payload = {
+                    'login_cookie': self.login_cookie,
+                    'steam_name': self.steam_name
+                }
+                json.dump(payload, open(path, 'w', encoding='utf-8'))
+        except Exception as e:
+            print(f"Nie udało się zapisać auth_state: {e}", file=sys.stderr)
+
+    def clear_auth_state(self):
+        path = self._auth_state_path()
+        try:
+            if os.path.exists(path):
+                os.remove(path)
+        except Exception as e:
+            print(f"Nie udało się usunąć auth_state: {e}", file=sys.stderr)
+
+    # ------------------------------------------------------------------
+    # CYKLICZNE POBIERANIE SUGESTII (TYMCZASOWE)
+    # ------------------------------------------------------------------
+    def _start_periodic_suggestions_fetch(self):
+        """Uruchamia cykliczne pobieranie sugestii co losowo 10–15 minut.
+
+        Jeśli poprzednie pobieranie wciąż trwa, pomija cykl. Wysyła log do SearchView.
+        """
+        # Pierwsze zaplanowanie po krótkiej chwili, by UI zdążyło się podnieść
+        delay_ms = 10_000
+        self.root.after(delay_ms, self._periodic_suggestions_tick)
+
+    def _periodic_suggestions_tick(self):
+        try:
+            # Jeśli okno zamknięte – nie planuj dalej
+            if not hasattr(self, 'root'):
+                return
+            # Nie dubluj – jeśli proces już trwa, przeskocz
+            if getattr(self, '_suggestions_thread_active', False):
+                self._enqueue_log("Automatyczne odświeżanie: poprzednia aktualizacja w toku — pomijam cykl.")
+            else:
+                self._enqueue_log("Automatyczne odświeżanie sugestii — uruchamiam w tle.")
+                self.update_suggestions_async()
+        except Exception:
+            pass
+        # Zaplanuj następny cykl – losowo między 10 a 15 minut
+        try:
+            import random
+            minutes = random.randint(10, 15)
+            self.root.after(minutes * 60 * 1000, self._periodic_suggestions_tick)
+        except Exception:
+            # Fallback: stałe 12 minut
+            self.root.after(12 * 60 * 1000, self._periodic_suggestions_tick)
+
+    def _enqueue_log(self, message: str):
+        try:
+            self.result_queue.put({'status': 'log', 'message': message})
+        except Exception:
+            pass
         
     def _initialize_views(self):
         """Tworzy instancje wszystkich widoków."""
