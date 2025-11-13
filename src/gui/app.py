@@ -88,11 +88,12 @@ class MarketApp:
         # Autologin jeśli pamiętany użytkownik
         self._attempt_auto_login()
         self.process_queue()
-        # Tymczasowo: automatyczny retry na pobieranie sugestii co 10–15 minut
-        try:
-            self._start_periodic_suggestions_fetch()
-        except Exception:
-            pass
+        # Auto-odświeżanie sugestii: domyślnie wyłączone; użytkownik włącza z SearchView
+        self._auto_enabled = False
+        self._auto_min_s = 600
+        self._auto_max_s = 900
+        self._auto_after_id = None
+        self._next_auto_refresh_ts = None
 
     def set_taskbar_percent(self, percent: int | None):
         """Ustawia procent w tytule okna (widoczny jako tekst na pasku zadań).
@@ -207,42 +208,83 @@ class MarketApp:
     # ------------------------------------------------------------------
     # CYKLICZNE POBIERANIE SUGESTII (TYMCZASOWE)
     # ------------------------------------------------------------------
-    def _start_periodic_suggestions_fetch(self):
-        """Uruchamia cykliczne pobieranie sugestii co losowo 10–15 minut.
+    def _schedule_next_auto_refresh(self, delay_seconds: int | None = None):
+        """Planuje następny cykl auto-odświeżania wg bieżących ustawień.
 
-        Jeśli poprzednie pobieranie wciąż trwa, pomija cykl. Wysyła log do SearchView.
+        Jeśli wyłączone – anuluje istniejący timer. Gdy `delay_seconds` None, losuje z [min,max].
         """
-        # Pierwsze zaplanowanie po krótkiej chwili, by UI zdążyło się podnieść
-        delay_ms = 10_000
-        self.root.after(delay_ms, self._periodic_suggestions_tick)
+        try:
+            # Anuluj poprzedni timer jeśli istnieje
+            if self._auto_after_id is not None:
+                try:
+                    self.root.after_cancel(self._auto_after_id)
+                except Exception:
+                    pass
+                self._auto_after_id = None
+            if not self._auto_enabled:
+                self._next_auto_refresh_ts = None
+                return
+            import random, time
+            min_s = max(1, int(self._auto_min_s))
+            max_s = max(min_s, int(self._auto_max_s))
+            delay = int(delay_seconds) if isinstance(delay_seconds, int) and delay_seconds >= 0 else random.randint(min_s, max_s)
+            self._next_auto_refresh_ts = time.time() + delay
+            # poinformuj widok o nowym ETA, jeśli istnieje
+            if "search" in self.views and hasattr(self.views["search"], "_update_auto_next_label"):
+                try:
+                    self.views["search"]._update_auto_next_label()
+                except Exception:
+                    pass
+            self._auto_after_id = self.root.after(delay * 1000, self._periodic_suggestions_tick)
+        except Exception:
+            pass
 
     def _periodic_suggestions_tick(self):
         try:
-            # Jeśli okno zamknięte – nie planuj dalej
-            if not hasattr(self, 'root'):
+            if not self._auto_enabled:
                 return
             # Nie dubluj – jeśli proces już trwa, przeskocz
             if getattr(self, '_suggestions_thread_active', False):
-                self._enqueue_log("Automatyczne odświeżanie: poprzednia aktualizacja w toku — pomijam cykl.")
+                self._enqueue_log("Auto-odświeżanie: poprzednia aktualizacja w toku — pomijam cykl.")
             else:
-                self._enqueue_log("Automatyczne odświeżanie sugestii — uruchamiam w tle.")
+                self._enqueue_log("Auto-odświeżanie sugestii — uruchamiam w tle.")
                 self.update_suggestions_async()
         except Exception:
             pass
-        # Zaplanuj następny cykl – losowo między 10 a 15 minut
-        try:
-            import random
-            minutes = random.randint(10, 15)
-            self.root.after(minutes * 60 * 1000, self._periodic_suggestions_tick)
-        except Exception:
-            # Fallback: stałe 12 minut
-            self.root.after(12 * 60 * 1000, self._periodic_suggestions_tick)
+        # Zaplanuj następny cykl
+        self._schedule_next_auto_refresh()
 
     def _enqueue_log(self, message: str):
         try:
             self.result_queue.put({'status': 'log', 'message': message})
         except Exception:
             pass
+
+    # Publiczne API: ustawienia auto-odświeżania z SearchView
+    def set_auto_refresh_config(self, enabled: bool, min_seconds: int, max_seconds: int):
+        try:
+            self._auto_enabled = bool(enabled)
+            # sanity clamp
+            try:
+                min_s = int(min_seconds)
+                max_s = int(max_seconds)
+            except Exception:
+                min_s, max_s = 600, 900
+            if min_s < 1:
+                min_s = 1
+            if max_s < min_s:
+                max_s = min_s
+            self._auto_min_s = min_s
+            self._auto_max_s = max_s
+            if self._auto_enabled:
+                self._enqueue_log(f"Auto-odświeżanie: włączone ({min_s}-{max_s}s).")
+                # Zaplanuj nowy cykl od teraz
+                self._schedule_next_auto_refresh()
+            else:
+                self._enqueue_log("Auto-odświeżanie: wyłączone.")
+                self._schedule_next_auto_refresh(delay_seconds=0)  # spowoduje anulowanie
+        except Exception as e:
+            print(f"Błąd set_auto_refresh_config: {e}", file=sys.stderr)
         
     def _initialize_views(self):
         """Tworzy instancje wszystkich widoków."""

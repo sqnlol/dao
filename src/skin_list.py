@@ -9,6 +9,10 @@ Dla skrzynek, wartość to pusta lista [].
 """
 
 import json, os, sys
+try:
+    import suggestions_loader  # dynamic parsing of suggestions.txt
+except ImportError:
+    suggestions_loader = None
 
 GENERATED_JSON = os.path.join('src', 'skin_list_generated.json')
 
@@ -1348,3 +1352,184 @@ def _build_categories(data: dict):
     }
 
 WEAPON_CATEGORIES = _build_categories(SKIN_DATA)
+
+# ---------------------------------------------------------------
+# Dynamic suggestions parsing (real market names) -> overrides
+# ---------------------------------------------------------------
+_SUG = {}
+if suggestions_loader:
+    try:
+        _SUG = suggestions_loader.build_structured_suggestions() or {}
+    except Exception as e:
+        print(f"Błąd ładowania suggestions.txt: {e}", file=sys.stderr)
+
+# ---------------------------------------------------------------
+# Dodatkowe kategorie rozszerzone (placeholdery / statyczne listy)
+# Przeniesione z SearchView dla centralizacji i łatwiejszej przyszłej aktualizacji.
+# ---------------------------------------------------------------
+
+GLOVES = _SUG.get('GLOVES') or {
+    'types': ["Hand Wraps", "Specialist Gloves", "Sport Gloves", "Driver Gloves", "Hydra Gloves", "Moto Gloves"],
+    'skins': {
+        "Hand Wraps": ["CAUTION!", "Overprint", "Giraffe"],
+        "Specialist Gloves": ["Crimson Kimono", "Fade", "Lt. Commander"],
+        "Sport Gloves": ["Slingshot", "Vice", "Pandora's Box"],
+        "Driver Gloves": ["King Snake", "Crimson Weave", "Imperial Plaid"],
+        "Hydra Gloves": ["Case Hardened", "Emerald", "Rattler"],
+        "Moto Gloves": ["Cool Mint", "POW!", "Blood Pressure"],
+    },
+    'wear': ["(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)"]
+}
+
+_STICKERS_RAW = _SUG.get('STICKERS')
+if _STICKERS_RAW:
+    STICKERS = {
+        'types': _STICKERS_RAW.get('types') or ["Sticker"],
+        'events': _STICKERS_RAW.get('events') or [],  # treat parsed names as 'events' list for skin_combo
+        'qualities': _STICKERS_RAW.get('qualities') or ["Paper", "Holo", "Foil", "Glitter", "Gold"],
+    }
+else:
+    STICKERS = {
+        'types': ["Sticker"],
+        'events': ["MLG Columbus 2016", "Katowice 2019", "Boston 2018"],
+        'qualities': ["Paper", "Glitter", "Foil", "Holo", "Gold"],
+    }
+
+ZEUS_SKINS = _SUG.get('ZEUS_SKINS') or ["Anodized", "Custom Engraved", "Circuitry"]
+
+# Zeus advanced structure: per-skin available wears (if parsed)
+_ZEUS_RAW = _SUG.get('ZEUS') or {}
+if _ZEUS_RAW:
+    ZEUS = {
+        'skins': _ZEUS_RAW.get('skins') or ZEUS_SKINS,
+        'name_to_wears': _ZEUS_RAW.get('name_to_wears') or {},
+    }
+    # Normalize ZEUS_SKINS from ZEUS if present
+    if ZEUS.get('skins'):
+        ZEUS_SKINS = ZEUS['skins']
+else:
+    ZEUS = {
+        'skins': ZEUS_SKINS,
+        'name_to_wears': {name: ["(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)"] for name in ZEUS_SKINS},
+    }
+
+# Convenience export for UI
+ZEUS_WEAR_MAP = ZEUS.get('name_to_wears', {})
+
+# -----------------------
+# WEAPON skins from suggestions.txt (dynamic)
+# -----------------------
+_WEAPONS_RAW = _SUG.get('WEAPONS') or {}
+_WEAPON_SKINS = _WEAPONS_RAW.get('skins') or {}
+_WEAPON_WEAR_MAP = _WEAPONS_RAW.get('wears') or {}
+_WEAPON_SOUVENIR = _WEAPONS_RAW.get('souvenir') or {}
+_WEAPON_STATTRAK = _WEAPONS_RAW.get('stattrak') or {}
+
+# Overlay parsed skins onto SKIN_DATA for known weapons
+# IMPORTANT: merge with existing defaults instead of overwriting entirely.
+# Some rare skins (e.g., AWP Dragon Lore) may be missing from suggestions.txt,
+# and we still want them available in the UI.
+if _WEAPON_SKINS:
+    for _weapon, _skins in _WEAPON_SKINS.items():
+        try:
+            if isinstance(_skins, list) and _skins:
+                SKIN_DATA[_weapon] = _skins
+        except Exception:
+            pass
+
+# Export a wear map for weapons: weapon -> skin -> [wears]
+WEAPON_WEAR_MAP = _WEAPON_WEAR_MAP
+WEAPON_SOUVENIR_MAP = _WEAPON_SOUVENIR
+WEAPON_STATTRAK_MAP = _WEAPON_STATTRAK
+
+_GRAFFITI_RAW = _SUG.get('GRAFFITI')
+if _GRAFFITI_RAW:
+    GRAFFITI = {
+        'types': _GRAFFITI_RAW.get('types') or ["Esportowe", "Zwykłe"],
+        'events': _GRAFFITI_RAW.get('events') or [],
+        'event_to_names': _GRAFFITI_RAW.get('event_to_names') or {},
+        'normal_names': _GRAFFITI_RAW.get('normal_names') or [],
+        'name_to_colors': _GRAFFITI_RAW.get('name_to_colors') or {},
+    }
+else:
+    GRAFFITI = {
+        'types': ["Esportowe", "Zwykłe"],
+        'events': ["Boston 2018", "Katowice 2019", "Antwerp 2022"],
+        'event_to_names': {
+            "Katowice 2019": ["Team A", "Team B"],
+        },
+        'normal_names': ["Thumbs Up", "Skull", "Smiley"],
+        'name_to_colors': {
+            "Thumbs Up": ["Red", "Blue"],
+            "Skull": ["Orange", "Violet"],
+        },
+    }
+
+_AGENTS_RAW = _SUG.get('AGENTS')
+if _AGENTS_RAW:
+    AGENTS = {
+        'collections': _AGENTS_RAW.get('collections') or [],
+        'names': _AGENTS_RAW.get('names') or [],
+        'map': _AGENTS_RAW.get('map') or {},
+    }
+else:
+    AGENTS = {
+        'collections': [
+            "The Professionals", "Gendarmerie Nationale", "Guerrilla Warfare", "NZSAS", "Phoenix",
+            "Sabre", "FBI Sniper", "FBI SWAT", "Elite Crew", "FBI HRT", "NSWC SEAL", "USAF TACP", "SAS", "KSK",
+            "TACAP Cavalry", "Sabre Footsoldier", "SWAT", "Brazilian 1st Battalion", "SEAL Frogman"
+        ],
+        'names': ["Operator X", "Specialist Y", "Trooper Z"],
+        'map': {},
+    }
+
+_CONTAINERS_RAW = _SUG.get('CONTAINERS')
+if _CONTAINERS_RAW:
+    CONTAINERS = _CONTAINERS_RAW
+else:
+    CONTAINERS = {
+        'types': ["Skrzynia", "Pojemnik z naklejkami", "Zestaw (Package)", "Terminal"],
+        'cases': ["Revolution Case", "Dreams & Nightmares Case", "Snakebite Case"],
+        'common': ["Storage Unit", "Weapon Case", "Collectible Capsule"],
+        'event_containers': ["ESL One Cologne 2015", "Atlanta 2017", "Katowice 2019"],
+        'sets_collection': ["2021 Train Collection", "2021 Mirage Collection"],
+        'sets_souvenir': ["Souvenir 2019 Inferno Package", "Souvenir 2019 Mirage Package"],
+        'sets_other': ["2022 Dust II Package", "Ancient Package"],
+        'terminals': ["Kilowatt Case Terminal", "Ambush Collection Terminal"],
+    }
+
+OTHER_TYPES = ["Zestaw utworów", "Klucz", "Przywieszka", "Przepustka", "Przedmiot kolekcjonerski", "Prezent", "Naszywka", "Narzędzie"]
+
+# Expose gloves wear map (per type/skin) if available in suggestions
+_GLOVES_RAW = _SUG.get('GLOVES') if _SUG else None
+if _GLOVES_RAW:
+    try:
+        # Merge wear_map into GLOVES to ensure presence
+        if 'wear_map' in _GLOVES_RAW:
+            if 'wear_map' not in GLOVES:
+                GLOVES['wear_map'] = _GLOVES_RAW.get('wear_map') or {}
+            else:
+                GLOVES['wear_map'] = _GLOVES_RAW.get('wear_map') or GLOVES.get('wear_map', {})
+    except Exception:
+        pass
+
+# Export KNIVES if available from suggestions
+_KNIVES_RAW = _SUG.get('KNIVES') if _SUG else None
+if _KNIVES_RAW:
+    KNIVES = {
+        'types': _KNIVES_RAW.get('types') or [],
+        'skins': _KNIVES_RAW.get('skins') or {},
+        'wear_map': _KNIVES_RAW.get('wear_map') or {},
+    }
+else:
+    KNIVES = {
+        'types': [
+            "Bayonet", "M9 Bayonet", "Karambit", "Flip Knife", "Gut Knife",
+            "Huntsman Knife", "Falchion Knife", "Bowie Knife", "Shadow Daggers",
+            "Navaja Knife", "Stiletto Knife", "Talon Knife", "Ursus Knife",
+            "Classic Knife", "Paracord Knife", "Survival Knife", "Nomad Knife",
+            "Skeleton Knife", "Butterfly Knife", "Kukri Knife"
+        ],
+        'skins': {},
+        'wear_map': {}
+    }
