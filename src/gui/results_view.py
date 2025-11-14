@@ -14,6 +14,12 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.dates as mdates
 # --- KONIEC IMPORTÓW ---
 
+# Kursy walut względem PLN (przybliżone)
+EXCHANGE_RATES = {
+    'PLN': 1.0,
+    'USD': 0.25,  # 1 PLN ≈ 0.25 USD
+    'EUR': 0.23   # 1 PLN ≈ 0.23 EUR
+}
 
 class ResultsView:
     def __init__(self, master, app_controller):
@@ -27,6 +33,7 @@ class ResultsView:
         self.current_item_name = ""
         self.history_data = []
         self.listings_data = {}
+        self._history_from_api = False  # Czy dane historyczne są z API (już w poprawnej walucie)
         # Stan sortowania historii (True = podstawowy kierunek: cena rosnąco, data malejąco -> najnowsze)
         self._history_sort_states = {
             'price': True,           # True => ascending, False => descending
@@ -52,6 +59,21 @@ class ResultsView:
         self._image_cache_limit = 50
 
         self._create_widgets()
+    
+    def _convert_price(self, price_pln, is_already_converted=False):
+        """Konwertuje cenę z PLN na wybraną walutę.
+        
+        Args:
+            price_pln: Cena w PLN (lub już skonwertowana jeśli is_already_converted=True)
+            is_already_converted: Czy cena jest już w docelowej walucie (z API Steam)
+        """
+        if price_pln is None:
+            return None
+        if is_already_converted:
+            return price_pln  # Dane z API są już w poprawnej walucie
+        currency = getattr(self.controller, 'currency', 'PLN')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+        return price_pln * rate
         
     def _create_widgets(self):
         # 1. Nagłówek i przycisk powrotu
@@ -237,13 +259,19 @@ class ResultsView:
         try:
             for record in self.history_data:
                 record_date = datetime.datetime.fromtimestamp(record['sale_timestamp'])
+                # Konwertuj cenę tylko jeśli dane NIE są z API (są z bazy w PLN)
+                if self._history_from_api:
+                    price = record['price']  # Dane z API już w poprawnej walucie
+                else:
+                    price = self._convert_price(record['price'])  # Dane z bazy w PLN - konwertuj
+                
                 if time_range == 'all':
                     x_dates.append(record_date)
-                    y_prices.append(record['price'])
+                    y_prices.append(price)
                     plotted_records.append(record)
                 elif limit_date is not None and record_date > limit_date:
                     x_dates.append(record_date)
-                    y_prices.append(record['price'])
+                    y_prices.append(price)
                     plotted_records.append(record)
         except Exception as e:
             print(f"Błąd przetwarzania daty dla wykresu: {e}", file=sys.stderr)
@@ -259,6 +287,9 @@ class ResultsView:
 
         self.ax.clear()
         
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        
         # --- KLUCZOWA ZMIANA ---
         # Zmieniono 'o' (kropki) na '.-' (linia z kropkami)
         line, = self.ax.plot(x_dates, y_prices, '.-', markersize=4, color='#3498db', alpha=0.7)
@@ -269,7 +300,7 @@ class ResultsView:
         # --- KONIEC ZMIANY ---
         
         self.ax.set_title(f"Historia transakcji ({time_range})", color='white')
-        self.ax.set_ylabel("Cena (PLN)", color='white')
+        self.ax.set_ylabel(f"Cena ({currency_symbol})", color='white')
         self.ax.grid(True, linestyle='--', alpha=0.2, color='white')
         
         self.fig.autofmt_xdate()
@@ -357,6 +388,10 @@ class ResultsView:
                     rec = self._chart_records[idx]
                 except Exception:
                     pass
+                # Pobierz symbol waluty z kontrolera
+                currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+                # Y jest już skonwertowane w wykresie, więc używamy go bezpośrednio
+                price_txt = f"{y:.2f} {currency_symbol}" if y is not None else "N/A"
                 # Tekst dymka
                 if isinstance(x, datetime.datetime):
                     dt_str = x.strftime('%Y-%m-%d %H:%M')
@@ -366,7 +401,7 @@ class ResultsView:
                         dt_str = dt.strftime('%Y-%m-%d %H:%M')
                     except Exception:
                         dt_str = str(x)
-                price_txt = f"{y:.2f} PLN"
+                price_txt = f"{y:.2f} {currency_symbol}" if y is not None else "N/A"
                 # Jeśli mamy oryginalny rekord, użyj jego pola sale_date_str jeżeli istnieje
                 if rec and isinstance(rec, dict):
                     dt_str = rec.get('sale_date_str', dt_str)
@@ -494,6 +529,9 @@ class ResultsView:
         info_frame = ttk.Frame(self.listings_section)
         info_frame.pack(fill='x', padx=5, pady=5)
 
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+
         if total_count == 0 or not self._all_listings:
             ttk.Label(info_frame, text="⛔ Brak aktualnych ofert sprzedaży na rynku.", foreground='red').pack(fill='x')
             # Pokaż ostatnią zarejestrowaną sprzedaż z historii, jeśli dostępna
@@ -503,7 +541,12 @@ class ResultsView:
                     sale_date = latest_sale.get('sale_date_str', '-')
                     sale_price = latest_sale.get('price', None)
                     if sale_price is not None:
-                        ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}, cena: {sale_price:.2f} PLN", foreground='gray').pack(anchor='w')
+                        # Konwertuj tylko jeśli dane NIE są z API
+                        if self._history_from_api:
+                            price_display = sale_price
+                        else:
+                            price_display = self._convert_price(sale_price)
+                        ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}, cena: {price_display:.2f} {currency_symbol}", foreground='gray').pack(anchor='w')
                     else:
                         ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}", foreground='gray').pack(anchor='w')
                 else:
@@ -516,7 +559,7 @@ class ResultsView:
         lp = self.listings_data.get('lowest_price')
         lp_float = self.listings_data.get('lowest_price_float')
         if lp_float is not None:
-            ttk.Label(info_frame, text=f"Najniższa oferta: {lp_float:.2f} PLN", foreground='green').pack(anchor='w')
+            ttk.Label(info_frame, text=f"Najniższa oferta: {lp_float:.2f} {currency_symbol}", foreground='green').pack(anchor='w')
         elif lp:
             ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
 
@@ -589,13 +632,15 @@ class ResultsView:
             info = child.grid_info()
             if info.get('row') and info.get('row') != 0:
                 child.destroy()
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
         # Wyświetlamy bieżącą załadowaną stronę (self._all_listings reprezentuje stronę)
         subset = self._all_listings
         for idx, listing in enumerate(subset, start=1):
             price = listing.get('price_float')
             fee = listing.get('fee')
-            price_text = f"{price:.2f} PLN" if price is not None else "N/A"
-            fee_text = f"{fee:.2f} PLN" if fee is not None else "N/A"
+            price_text = f"{price:.2f} {currency_symbol}" if price is not None else "N/A"
+            fee_text = f"{fee:.2f} {currency_symbol}" if fee is not None else "N/A"
             base_index = self.current_page * self.page_size
             ttk.Label(parent, text=str(base_index + idx)).grid(row=idx, column=0, padx=5, sticky='w')
             ttk.Label(parent, text=price_text, foreground='green').grid(row=idx, column=1, padx=5, sticky='e')
@@ -744,6 +789,17 @@ class ResultsView:
         lowest_record = min(history, key=operator.itemgetter('price'))
         highest_record = max(history, key=operator.itemgetter('price'))
         
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        
+        # Konwertuj ceny tylko jeśli dane NIE są z API
+        if self._history_from_api:
+            lowest_price_display = lowest_record['price']
+            highest_price_display = highest_record['price']
+        else:
+            lowest_price_display = self._convert_price(lowest_record['price'])
+            highest_price_display = self._convert_price(highest_record['price'])
+        
         summary_grid = ttk.Frame(self.summary_section, padding=5)
         summary_grid.pack(fill='x', padx=5, pady=5)
         summary_grid.grid_columnconfigure(1, weight=1)
@@ -751,12 +807,12 @@ class ResultsView:
         row = 0
         
         ttk.Label(summary_grid, text="Najniższa cena historyczna:").grid(row=row, column=0, sticky='w', padx=5)
-        ttk.Label(summary_grid, text=f"{lowest_record['price']:.2f} PLN", font=('Arial', 10, 'bold'), foreground='green').grid(row=row, column=1, sticky='w')
+        ttk.Label(summary_grid, text=f"{lowest_price_display:.2f} {currency_symbol}", font=('Arial', 10, 'bold'), foreground='green').grid(row=row, column=1, sticky='w')
         ttk.Label(summary_grid, text=f"Data: {lowest_record['sale_date_str']}").grid(row=row, column=2, padx=10, sticky='w')
         row += 1
 
         ttk.Label(summary_grid, text="Najwyższa cena historyczna:").grid(row=row, column=0, sticky='w', padx=5)
-        ttk.Label(summary_grid, text=f"{highest_record['price']:.2f} PLN", font=('Arial', 10, 'bold'), foreground='red').grid(row=row, column=1, sticky='w')
+        ttk.Label(summary_grid, text=f"{highest_price_display:.2f} {currency_symbol}", font=('Arial', 10, 'bold'), foreground='red').grid(row=row, column=1, sticky='w')
         ttk.Label(summary_grid, text=f"Data: {highest_record['sale_date_str']}").grid(row=row, column=2, padx=10, sticky='w')
         row += 1
         
@@ -802,8 +858,13 @@ class ResultsView:
     # ------------------------------------------------------------------
     # GŁÓWNA METODA POKAZUJĄCA WYNIKI
     # ------------------------------------------------------------------
-    def show_results(self, item_name, history_data, listings_data):
-        """Aktualizuje widok po pomyślnym pobraniu danych."""
+    def show_results(self, item_name, history_data, listings_data, fresh_history=None, currency_code=None):
+        """Aktualizuje widok po pomyślnym pobraniu danych.
+        
+        Args:
+            fresh_history: Świeże dane z API w aktualnej walucie (opcjonalne)
+            currency_code: Kod waluty użytej przy pobieraniu danych
+        """
         # Reset cache dla nowego przedmiotu (uniknięcie przenikania ofert starego)
         self._cache_item_key = item_name
         self._page_cache.clear()
@@ -817,7 +878,9 @@ class ResultsView:
                 pass
             self._overlay_canvas = None
         self.current_item_name = item_name
-        self.history_data = history_data
+        # Użyj świeżych danych z API jeśli dostępne, w przeciwnym razie dane z bazy
+        self.history_data = fresh_history if fresh_history else history_data
+        self._history_from_api = bool(fresh_history)  # Czy dane są z API (już w poprawnej walucie)
         self.listings_data = listings_data
         self.current_page = 0
         
@@ -828,9 +891,12 @@ class ResultsView:
             listings_data = {} # Zapewnij pusty słownik, aby .get() nie crashował
         # --- KONIEC POPRAWKI ---
 
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+
         lowest_price = listings_data.get('lowest_price')
         lowest_price_float = listings_data.get('lowest_price_float')
-        lp_text = f"{lowest_price_float:.2f} PLN" if lowest_price_float is not None else (lowest_price or "N/A")
+        lp_text = f"{lowest_price_float:.2f} {currency_symbol}" if lowest_price_float is not None else (lowest_price or "N/A")
         
         self._clear_sections()
         

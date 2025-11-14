@@ -10,6 +10,8 @@ import threading
 from src.gui.login_view import LoginView
 from src.gui.search_view import SearchView
 from src.gui.results_view import ResultsView
+from src.gui.cases_view import CasesView
+from src.gui.case_detail_view import CaseDetailView
 from src import steam_market
 # --- KONIEC POPRAWEK ---
 
@@ -61,7 +63,12 @@ class MarketApp:
         # Dane sesyjne
         self.steam_id = None
         self.steam_name = "Użytkowniku" 
-        self.login_cookie = None 
+        self.login_cookie = None
+        
+        # Ustawienia waluty (domyślnie PLN)
+        self.currency = "PLN"  # Opcje: PLN, USD, EUR
+        self.currency_code = 6  # Steam API: 6=PLN
+        self.currency_symbol = "zł" 
         
         self.result_queue = queue.Queue()
         
@@ -293,26 +300,181 @@ class MarketApp:
         self.container.pack(fill='both', expand=True)
         
         self.container.grid_rowconfigure(0, weight=1)
-        self.container.grid_columnconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=0)  # Sidebar - fixed width
+        self.container.grid_columnconfigure(1, weight=1)  # Main content - expandable
 
-        # Inicjalizacja klas widoków
-        self.views["login"] = LoginView(self.container, self)
-        self.views["search"] = SearchView(self.container, self)
-        self.views["results"] = ResultsView(self.container, self)
+        # Stwórz lewy panel boczny (sidebar)
+        self._create_sidebar()
+
+        # Kontener na główne widoki (po prawej od sidebaru)
+        self.content_frame = ttk.Frame(self.container)
+        self.content_frame.grid(row=0, column=1, sticky="nsew")
+        self.content_frame.grid_rowconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+
+        # Inicjalizacja klas widoków w content_frame zamiast container
+        self.views["login"] = LoginView(self.content_frame, self)
+        self.views["search"] = SearchView(self.content_frame, self)
+        self.views["results"] = ResultsView(self.content_frame, self)
+        self.views["cases"] = CasesView(self.content_frame, self)
+        self.views["case_detail"] = CaseDetailView(self.content_frame, self)
 
         # Ustawienie pozycji początkowej dla wszystkich widoków
         for name, view in self.views.items():
             view.frame.grid(row=0, column=0, sticky="nsew")
+    
+    def _create_sidebar(self):
+        """Tworzy lewy panel boczny z menu nawigacyjnym."""
+        # Główny frame sidebaru z ciemnym tłem
+        self.sidebar = ttk.Frame(self.container, style='Sidebar.TFrame', width=200)
+        self.sidebar.grid(row=0, column=0, sticky='ns')
+        self.sidebar.grid_propagate(False)  # Zachowaj stałą szerokość
+        
+        # Styl dla sidebaru
+        style = ttk.Style()
+        style.configure('Sidebar.TFrame', background='#1a1a1a')
+        style.configure('SidebarButton.TButton', 
+                       background='#2a2a2a', 
+                       foreground='white',
+                       borderwidth=0,
+                       focuscolor='none',
+                       padding=12,
+                       font=('Arial', 10))
+        style.map('SidebarButton.TButton',
+                 background=[('active', '#3a3a3a'), ('pressed', '#4a4a4a')])
+        
+        # Logo w górnej części
+        logo_frame = ttk.Frame(self.sidebar, style='Sidebar.TFrame')
+        logo_frame.pack(side='top', fill='x', pady=20, padx=10)
+        
+        try:
+            from PIL import Image, ImageTk
+            import os
+            logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img', 'CS2SkinAnalyzer.png')
+            if os.path.exists(logo_path):
+                img = Image.open(logo_path)
+                # Skaluj logo do 64x64 dla sidebaru
+                img.thumbnail((64, 64))
+                self._sidebar_logo_img = ImageTk.PhotoImage(img)
+                logo_label = tk.Label(logo_frame, image=self._sidebar_logo_img, bg='#1a1a1a')
+                logo_label.pack()
+        except Exception as e:
+            print(f"Nie udało się załadować logo sidebaru: {e}", file=sys.stderr)
+        
+        # Separator po logo
+        sep = ttk.Frame(self.sidebar, height=2, style='Sidebar.TFrame')
+        sep.pack(fill='x', pady=(0, 10))
+        
+        # Menu nawigacyjne
+        menu_frame = ttk.Frame(self.sidebar, style='Sidebar.TFrame')
+        menu_frame.pack(side='top', fill='both', expand=True, padx=5)
+        
+        # Przycisk Główna
+        self.btn_home = ttk.Button(menu_frame, text="🏠 Główna", 
+                                   style='SidebarButton.TButton',
+                                   command=lambda: self._sidebar_navigate('home'))
+        self.btn_home.pack(fill='x', pady=2)
+        
+        # Przycisk Skrzynie
+        self.btn_cases = ttk.Button(menu_frame, text="📦 Skrzynie", 
+                                    style='SidebarButton.TButton',
+                                    command=lambda: self._sidebar_navigate('cases'))
+        self.btn_cases.pack(fill='x', pady=2)
+        
+        # Separator przed walutą
+        ttk.Frame(menu_frame, height=20, style='Sidebar.TFrame').pack(fill='x', pady=10)
+        
+        # Sekcja waluty
+        currency_label = tk.Label(menu_frame, text="💱 Waluta:", 
+                                 bg='#1a1a1a', fg='white', 
+                                 font=('Arial', 9))
+        currency_label.pack(fill='x', pady=(5, 2))
+        
+        # Combobox wyboru waluty
+        style.configure('Currency.TCombobox', fieldbackground='#2a2a2a', background='#2a2a2a')
+        self.currency_combo = ttk.Combobox(menu_frame, 
+                                          values=['PLN', 'USD', 'EUR'],
+                                          state='readonly',
+                                          width=15)
+        self.currency_combo.set(self.currency)
+        self.currency_combo.pack(fill='x', pady=2, padx=5)
+        self.currency_combo.bind('<<ComboboxSelected>>', self._on_currency_change)
+        
+        # Sidebar ukryty domyślnie (widoczny dopiero po zalogowaniu)
+        self.sidebar.grid_remove()
+    
+    def _sidebar_navigate(self, destination):
+        """Obsługuje nawigację z sidebaru."""
+        if destination == 'home':
+            self.switch_view('search')
+        elif destination == 'cases':
+            self.switch_view('cases')
+    
+    def _on_currency_change(self, event=None):
+        """Obsługuje zmianę waluty."""
+        selected = self.currency_combo.get()
+        
+        # Mapowanie walut na kody Steam API i symbole
+        currency_map = {
+            'PLN': {'code': 6, 'symbol': 'zł'},
+            'USD': {'code': 1, 'symbol': '$'},
+            'EUR': {'code': 3, 'symbol': '€'}
+        }
+        
+        if selected in currency_map:
+            self.currency = selected
+            self.currency_code = currency_map[selected]['code']
+            self.currency_symbol = currency_map[selected]['symbol']
+            
+            # Loguj zmianę
+            current_view = self.current_view
+            if current_view and hasattr(current_view, 'log_message'):
+                current_view.log_message(f"Waluta zmieniona na: {selected} ({self.currency_symbol})")
+            
+            # Odśwież bieżący widok jeśli to results (ponownie pobierz dane)
+            if self.current_view == self.views.get('results'):
+                # Informacja że trzeba ponownie wyszukać
+                if hasattr(current_view, 'log_message'):
+                    current_view.log_message("Wykonaj ponowne wyszukiwanie aby zobaczyć ceny w nowej walucie.")
+    
+    def _show_sidebar(self):
+        """Pokazuje sidebar."""
+        try:
+            self.sidebar.grid()
+        except Exception:
+            pass
+    
+    def _hide_sidebar(self):
+        """Ukrywa sidebar."""
+        try:
+            self.sidebar.grid_remove()
+        except Exception:
+            pass
 
     def switch_view(self, view_name, **kwargs):
         """Przełącza aktualnie wyświetlany widok."""
+        
+        # Pokaż/ukryj sidebar w zależności od widoku
+        if view_name == "login":
+            self._hide_sidebar()
+        else:
+            self._show_sidebar()
         
         if view_name == "search":
             self.views["search"].update_welcome_label()
             
         elif view_name == "results":
             if 'item_name' in kwargs and 'history_data' in kwargs and 'listings_data' in kwargs:
-                 self.views["results"].show_results(kwargs['item_name'], kwargs['history_data'], kwargs['listings_data'])
+                 self.views["results"].show_results(
+                     kwargs['item_name'], 
+                     kwargs['history_data'], 
+                     kwargs['listings_data'],
+                     fresh_history=kwargs.get('fresh_history'),
+                     currency_code=kwargs.get('currency_code')
+                 )
+        elif view_name == "case_detail":
+            if 'case' in kwargs:
+                self.views["case_detail"].show_case(kwargs['case'])
             
         view = self.views.get(view_name)
         if view:

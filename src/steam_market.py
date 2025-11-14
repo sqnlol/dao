@@ -122,12 +122,17 @@ def parse_market_name(market_hash_name):
 # ------------------------------------------------------------------
 # API: HISTORIA CEN
 # ------------------------------------------------------------------
-def get_price_history(market_hash_name, login_cookie):
+def get_price_history(market_hash_name, login_cookie, currency_code=6):
+    """Pobiera historię cen z Steam API.
+    
+    Args:
+        currency_code: Kod waluty Steam API (1=USD, 3=EUR, 6=PLN)
+    """
     if not login_cookie:
         print("Błąd: Próba pobrania historii cen bez ciasteczka.", file=sys.stderr)
         return None
     try:
-        url = f"https://steamcommunity.com/market/pricehistory/?appid=730&market_hash_name={quote(market_hash_name)}"
+        url = f"https://steamcommunity.com/market/pricehistory/?appid=730&market_hash_name={quote(market_hash_name)}&currency={currency_code}"
         headers = base_headers.copy()
         headers['Cookie'] = f"steamLoginSecure={login_cookie}"
         response = requests.get(url, headers=headers, timeout=10)
@@ -168,8 +173,11 @@ def get_price_history(market_hash_name, login_cookie):
 # ------------------------------------------------------------------
 # API: AKTUALNE OFERTY (LISTINGS) - POPRAWIONE PARSOWANIE
 # ------------------------------------------------------------------
-def get_market_listings(market_hash_name, login_cookie=None, count=10):
+def get_market_listings(market_hash_name, login_cookie=None, count=10, currency_code=6):
     """Pobiera aktualne oferty z endpointu /render/. Nie wymaga cookie.
+
+    Args:
+        currency_code: Kod waluty Steam API (1=USD, 3=EUR, 6=PLN)
 
     Zwraca słownik dostosowany do ResultsView:
     {
@@ -191,7 +199,7 @@ def get_market_listings(market_hash_name, login_cookie=None, count=10):
         'count': min(max(count, 1), 100),  # bezpieczne widełki
         'country': 'PL',
         'language': 'polish',
-        'currency': 6  # PLN (ważne dla spójności formatów cen)
+        'currency': currency_code
     }
 
     try:
@@ -687,8 +695,11 @@ def _fetch_item_nameid(market_hash_name, headers, timeout=20):
         return None
 
 
-def get_item_image_url(market_hash_name, login_cookie=None, timeout=15):
+def get_item_image_url(market_hash_name, login_cookie=None, currency_code=6, timeout=15):
     """Pobiera URL obrazka przedmiotu (og:image) z strony listingowej.
+
+    Args:
+        currency_code: Kod waluty Steam API (1=USD, 3=EUR, 6=PLN)
 
     Zwraca URL (string) lub None przy błędzie.
     """
@@ -696,7 +707,8 @@ def get_item_image_url(market_hash_name, login_cookie=None, timeout=15):
         headers = base_headers.copy()
         if login_cookie:
             headers['Cookie'] = f"steamLoginSecure={login_cookie}"
-        url = f"https://steamcommunity.com/market/listings/730/{quote(market_hash_name)}"
+        # Dodaj parametr currency do URL
+        url = f"https://steamcommunity.com/market/listings/730/{quote(market_hash_name)}?currency={currency_code}"
         resp = _http_get_with_backoff(url, headers=headers, timeout=timeout, max_retries=1, initial_sleep=0.6, metrics={})
         if resp is None or resp.status_code != 200:
             return None

@@ -1375,17 +1375,21 @@ class SearchView:
     def _run_search_and_save(self, item_name, login_cookie):
         """Logika pobierania i zapisywania w wątku."""
         
+        # Pobierz aktualny kod waluty z kontrolera
+        currency_code = getattr(self.controller, 'currency_code', 6)
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        
         # 1. Pobieranie historii cen (tylko z cookie)
         try:
             if login_cookie:
-                history = steam_market.get_price_history(item_name, login_cookie)
+                history = steam_market.get_price_history(item_name, login_cookie, currency_code)
                 if history is None:
                     self.controller.result_queue.put({'status': 'error', 'message': 'Błąd API podczas pobierania historii. Sprawdź konsolę.'})
                     return
                 if not history:
                     self.controller.result_queue.put({'status': 'log', 'message': f'Brak danych historycznych dla {item_name}.'})
                 else:
-                    self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(history)} rekordów z API.'})
+                    self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(history)} rekordów z API (waluta: {currency_symbol}).'})
             else:
                 history = []
         except Exception as e:
@@ -1397,8 +1401,8 @@ class SearchView:
 
         # 2. Pobieranie aktualnych ofert (Listings)
         try:
-            # Przekazujemy 'login_cookie'
-            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=10)
+            # Przekazujemy 'login_cookie' i 'currency_code'
+            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=10, currency_code=currency_code)
             
             if listings_data is None:
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
@@ -1438,6 +1442,11 @@ class SearchView:
 
             all_db_records = database.get_sales_for_item(item_name)
             
+            # Oznacz świeże dane z API jako już przetworzone (w odpowiedniej walucie)
+            # Dodaj flagę dla każdego nowego rekordu z historii
+            for entry in history:
+                entry['_from_current_api'] = True  # Świeże dane z API w aktualnej walucie
+            
             # --- USUNIĘTO BŁĘDNE SORTOWANIE STĄD ---
             
             self.controller.result_queue.put({
@@ -1446,7 +1455,11 @@ class SearchView:
                 'history_data': all_db_records,  # Przekazujemy listę bez sortowania
                 'listings_data': listings_data,
                 # Pobierz URL obrazka (jeśli dostępny) i przekaż dalej; nie blokujemy krytycznie jeśli brak
-                'image_url': steam_market.get_item_image_url(item_name, login_cookie)
+                'image_url': steam_market.get_item_image_url(item_name, login_cookie, currency_code),
+                # Przekaż informację o walucie i kod
+                'currency_symbol': currency_symbol,
+                'currency_code': currency_code,
+                'fresh_history': history  # Świeże dane z API w aktualnej walucie
             })
             
         except Exception as e:
