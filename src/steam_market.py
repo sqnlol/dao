@@ -132,10 +132,15 @@ def get_price_history(market_hash_name, login_cookie, currency_code=6):
         print("Błąd: Próba pobrania historii cen bez ciasteczka.", file=sys.stderr)
         return None
     try:
-        url = f"https://steamcommunity.com/market/pricehistory/?appid=730&market_hash_name={quote(market_hash_name)}&currency={currency_code}"
+        url = "https://steamcommunity.com/market/pricehistory/"
         headers = base_headers.copy()
         headers['Cookie'] = f"steamLoginSecure={login_cookie}"
-        response = requests.get(url, headers=headers, timeout=10)
+        params = {
+            'appid': 730,
+            'market_hash_name': market_hash_name,
+            'currency': currency_code,
+        }
+        response = requests.get(url, headers=headers, params=params, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
@@ -164,7 +169,12 @@ def get_price_history(market_hash_name, login_cookie, currency_code=6):
             else:
                 return []
         else:
-            print(f"Błąd połączenia z API Steam (historia cen): {response.status_code} {response.reason} for url: {url}", file=sys.stderr)
+            snippet = ''
+            try:
+                snippet = response.text[:120]
+            except Exception:
+                snippet = ''
+            print(f"Błąd połączenia z API Steam (historia cen): {response.status_code} {response.reason} for url: {response.url} | body: {snippet}", file=sys.stderr)
             return None
     except Exception as e:
         print(f"Błąd sieci (historia cen): {e}", file=sys.stderr)

@@ -557,23 +557,21 @@ class SearchView:
             self.skin_combo.bind("<<ComboboxSelected>>", self._on_gloves_skin_select)
             return
         if selected_cat == 'Naklejka':
+            self.label_weapon_type.config(text='Typ naklejki:')
+            self.label_skin.config(text='Nazwa:')
+            sticker_types = STICKERS.get('types', ['Esportowa', 'Zwykła'])
             self.weapon_combo.config(state='readonly')
-            self.weapon_combo['values'] = STICKERS['types']
-            self.weapon_combo.set(STICKERS['types'][0])
-            self.label_skin.config(text='Naklejka:')
-            self.skin_combo.config(state='readonly')
-            # Start od naklejek eventowych
-            self.skin_combo['values'] = STICKERS['events']
-            if STICKERS['events']:
-                self.skin_combo.set(STICKERS['events'][0])
-            self.wear_combobox.config(state='readonly')
-            self.wear_combobox['values'] = STICKERS['qualities']
-            if STICKERS['qualities']:
-                self.wear_combobox.set(STICKERS['qualities'][0])
-            self.stattrack_check.config(state='disabled')
-            self.stattrack_var.set(False)
-            self.souvenir_check.config(state='disabled')
-            self.souvenir_var.set(False)
+            self.weapon_combo['values'] = sticker_types
+            current_type = sticker_types[0] if sticker_types else ''
+            if current_type:
+                self.weapon_combo.set(current_type)
+            # Zastosuj logikę dla domyślnego typu naklejki
+            self._configure_sticker_ui(current_type)
+            try:
+                self.weapon_combo.unbind("<<ComboboxSelected>>")
+            except Exception:
+                pass
+            self.weapon_combo.bind("<<ComboboxSelected>>", self._on_sticker_type_select)
             return
         if selected_cat == 'Zeus x27':
             # Ukryj pole typu broni; Zeus ma tylko skiny
@@ -805,6 +803,71 @@ class SearchView:
                 self.skin_combo.set('')
         except Exception:
             pass
+
+    def _configure_sticker_ui(self, sticker_type: str):
+        try:
+            try:
+                self.skin_combo.unbind("<<ComboboxSelected>>")
+            except Exception:
+                pass
+            try:
+                self.wear_combobox.unbind("<<ComboboxSelected>>")
+            except Exception:
+                pass
+            if sticker_type == 'Esportowa':
+                self.label_quality.config(text='Event:')
+                self.label_quality.grid()
+                self.wear_combobox.grid()
+                events = STICKERS.get('events', [])
+                self.wear_combobox.config(state='readonly')
+                self.wear_combobox['values'] = events
+                if events:
+                    self.wear_combobox.set(events[0])
+                else:
+                    self.wear_combobox.set('')
+                self._set_sticker_names_for_event(self.wear_combobox.get())
+                self.wear_combobox.bind("<<ComboboxSelected>>", self._on_sticker_event_select)
+            else:
+                self.label_quality.grid_remove()
+                self.wear_combobox.grid_remove()
+                names = STICKERS.get('normal_names', [])
+                self.skin_combo.config(state=('readonly' if names else 'disabled'))
+                self.skin_combo['values'] = names
+                if names:
+                    self.skin_combo.set(names[0])
+                else:
+                    self.skin_combo.set('')
+            self.stattrack_check.config(state='disabled')
+            self.stattrack_var.set(False)
+            self.souvenir_check.config(state='disabled')
+            self.souvenir_var.set(False)
+        except Exception:
+            pass
+
+    def _set_sticker_names_for_event(self, event_name: str):
+        try:
+            if not event_name:
+                self.skin_combo.config(state='disabled')
+                self.skin_combo['values'] = []
+                self.skin_combo.set('')
+                return
+            names = (STICKERS.get('event_to_names', {}) or {}).get(event_name, [])
+            self.skin_combo.config(state=('readonly' if names else 'disabled'))
+            self.skin_combo['values'] = names
+            if names:
+                self.skin_combo.set(names[0])
+            else:
+                self.skin_combo.set('')
+        except Exception:
+            pass
+
+    def _on_sticker_type_select(self, event):
+        sticker_type = (self.weapon_combo.get() or '').strip()
+        self._configure_sticker_ui(sticker_type)
+
+    def _on_sticker_event_select(self, event):
+        event_name = self.wear_combobox.get()
+        self._set_sticker_names_for_event(event_name)
 
     def _reset_base_ui(self):
         """Przywraca podstawowe etykiety i widoczność dla klasycznej broni."""
@@ -1177,15 +1240,19 @@ class SearchView:
         return " ".join(parts)
 
     def _build_name_sticker(self) -> str:
-        _weapon, skin, wear = self._common_inputs()
+        sticker_type = (self.weapon_combo.get() or '').strip()
+        skin = (self.skin_combo.get() or '').strip()
+        event_or_quality = (self.wear_combobox.get() or '').strip()
         if not skin:
-            self.log_message("BŁĄD: Wybierz naklejkę.")
+            self.log_message("BŁĄD: Wybierz nazwę naklejki.")
             return ''
-        # Wzorzec: "Sticker | <Nazwa> (Jakość)"
-        base = ["Sticker", "|", skin]
-        if wear:
-            base.append(f"({wear})")
-        return " ".join(base)
+        if sticker_type == 'Esportowa':
+            if not event_or_quality:
+                self.log_message("BŁĄD: Wybierz event dla naklejki esportowej.")
+                return ''
+            return f"Sticker | {skin} | {event_or_quality}"
+        # Zwykła – brak pola jakości
+        return f"Sticker | {skin}"
 
     def _build_name_zeus(self) -> str:
         _weapon, skin, wear = self._common_inputs()
@@ -1375,21 +1442,17 @@ class SearchView:
     def _run_search_and_save(self, item_name, login_cookie):
         """Logika pobierania i zapisywania w wątku."""
         
-        # Pobierz aktualny kod waluty z kontrolera
-        currency_code = getattr(self.controller, 'currency_code', 6)
-        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
-        
         # 1. Pobieranie historii cen (tylko z cookie)
         try:
             if login_cookie:
-                history = steam_market.get_price_history(item_name, login_cookie, currency_code)
+                history = steam_market.get_price_history(item_name, login_cookie)
                 if history is None:
                     self.controller.result_queue.put({'status': 'error', 'message': 'Błąd API podczas pobierania historii. Sprawdź konsolę.'})
                     return
                 if not history:
                     self.controller.result_queue.put({'status': 'log', 'message': f'Brak danych historycznych dla {item_name}.'})
                 else:
-                    self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(history)} rekordów z API (waluta: {currency_symbol}).'})
+                    self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(history)} rekordów z API.'})
             else:
                 history = []
         except Exception as e:
@@ -1401,8 +1464,8 @@ class SearchView:
 
         # 2. Pobieranie aktualnych ofert (Listings)
         try:
-            # Przekazujemy 'login_cookie' i 'currency_code'
-            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=10, currency_code=currency_code)
+            # Przekazujemy 'login_cookie'
+            listings_data = steam_market.get_market_listings(item_name, login_cookie, count=10)
             
             if listings_data is None:
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
@@ -1442,11 +1505,6 @@ class SearchView:
 
             all_db_records = database.get_sales_for_item(item_name)
             
-            # Oznacz świeże dane z API jako już przetworzone (w odpowiedniej walucie)
-            # Dodaj flagę dla każdego nowego rekordu z historii
-            for entry in history:
-                entry['_from_current_api'] = True  # Świeże dane z API w aktualnej walucie
-            
             # --- USUNIĘTO BŁĘDNE SORTOWANIE STĄD ---
             
             self.controller.result_queue.put({
@@ -1455,11 +1513,7 @@ class SearchView:
                 'history_data': all_db_records,  # Przekazujemy listę bez sortowania
                 'listings_data': listings_data,
                 # Pobierz URL obrazka (jeśli dostępny) i przekaż dalej; nie blokujemy krytycznie jeśli brak
-                'image_url': steam_market.get_item_image_url(item_name, login_cookie, currency_code),
-                # Przekaż informację o walucie i kod
-                'currency_symbol': currency_symbol,
-                'currency_code': currency_code,
-                'fresh_history': history  # Świeże dane z API w aktualnej walucie
+                'image_url': steam_market.get_item_image_url(item_name, login_cookie)
             })
             
         except Exception as e:

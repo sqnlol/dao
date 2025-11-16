@@ -71,8 +71,10 @@ def build_structured_suggestions() -> Dict[str, object]:
     gloves_wear: Set[str] = set()
     gloves_skin_to_wears: Dict[str, Dict[str, Set[str]]] = {}
 
-    stickers_types: List[str] = ['Sticker']
-    stickers_names: Set[str] = set()
+    stickers_types: List[str] = ['Esportowa', 'Zwykła']
+    stickers_events: Set[str] = set()
+    stickers_event_to_names: Dict[str, Set[str]] = {}
+    stickers_normal_names: Set[str] = set()
     stickers_qualities: Set[str] = set()
 
     zeus_skins: Set[str] = set()
@@ -118,13 +120,24 @@ def build_structured_suggestions() -> Dict[str, object]:
                     left, right = s.split(' | ', 1)
                     # Sticker
                     if left == 'Sticker':
-                        base, paren = _split_paren(right)
-                        stickers_names.add(base)
+                        right_parts = [p.strip() for p in right.split('|')]
+                        name_part = right_parts[0] if right_parts else ''
+                        event_part = right_parts[1] if len(right_parts) > 1 else ''
+                        base, paren = _split_paren(name_part)
+                        display_name = name_part.strip()
                         if paren:
-                            # Normalize qualities like (Holo), (Foil), (Glitter), (Gold)
                             q = paren.strip('()').strip()
                             if q:
                                 stickers_qualities.add(q)
+                        if event_part:
+                            stickers_events.add(event_part)
+                            if event_part not in stickers_event_to_names:
+                                stickers_event_to_names[event_part] = set()
+                            if display_name:
+                                stickers_event_to_names[event_part].add(display_name)
+                        else:
+                            if display_name:
+                                stickers_normal_names.add(display_name)
                         continue
                     # Graffiti
                     if left == 'Sealed Graffiti':
@@ -270,7 +283,9 @@ def build_structured_suggestions() -> Dict[str, object]:
 
     stickers_struct = {
         'types': stickers_types,
-        'events': sorted(list(stickers_names)) if stickers_names else [],
+        'events': sorted(list(stickers_events)) if stickers_events else [],
+        'event_to_names': {e: sorted(list(n)) for e, n in stickers_event_to_names.items()} if stickers_event_to_names else {},
+        'normal_names': sorted(list(stickers_normal_names)) if stickers_normal_names else [],
         'qualities': sorted(list(stickers_qualities)) if stickers_qualities else ['Paper', 'Holo', 'Foil', 'Glitter', 'Gold']
     }
 

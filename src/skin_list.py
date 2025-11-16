@@ -1384,14 +1384,21 @@ GLOVES = _SUG.get('GLOVES') or {
 _STICKERS_RAW = _SUG.get('STICKERS')
 if _STICKERS_RAW:
     STICKERS = {
-        'types': _STICKERS_RAW.get('types') or ["Sticker"],
-        'events': _STICKERS_RAW.get('events') or [],  # treat parsed names as 'events' list for skin_combo
+        'types': _STICKERS_RAW.get('types') or ["Esportowa", "Zwykła"],
+        'events': _STICKERS_RAW.get('events') or [],
+        'event_to_names': _STICKERS_RAW.get('event_to_names') or {},
+        'normal_names': _STICKERS_RAW.get('normal_names') or [],
         'qualities': _STICKERS_RAW.get('qualities') or ["Paper", "Holo", "Foil", "Glitter", "Gold"],
     }
 else:
     STICKERS = {
-        'types': ["Sticker"],
-        'events': ["MLG Columbus 2016", "Katowice 2019", "Boston 2018"],
+        'types': ["Esportowa", "Zwykła"],
+        'events': ["Katowice 2019", "Boston 2018", "Rio 2022"],
+        'event_to_names': {
+            "Katowice 2019": ["Astralis (Holo)", "ENCE (Foil)"],
+            "Boston 2018": ["Cloud9 (Gold)", "FaZe Clan"],
+        },
+        'normal_names': ["Firestarter (Foil)", "Winged Defuser"],
         'qualities': ["Paper", "Glitter", "Foil", "Holo", "Gold"],
     }
 
