@@ -705,7 +705,7 @@ def _fetch_item_nameid(market_hash_name, headers, timeout=20):
         return None
 
 
-def get_item_image_url(market_hash_name, login_cookie=None, currency_code=6, timeout=15):
+def get_item_image_url(market_hash_name, login_cookie=None, currency_code=6, timeout=12):
     """Pobiera URL obrazka przedmiotu (og:image) z strony listingowej.
 
     Args:
@@ -735,7 +735,56 @@ def get_item_image_url(market_hash_name, login_cookie=None, currency_code=6, tim
         m3 = re.search(r'<img[^>]*class="[^"]*market_listing_item_img[^"]*"[^>]*src="([^"]+)"', html)
         if m3:
             return m3.group(1)
-        return None
+        # Ostateczny fallback: market search -> icon_url(_large)
+        try:
+            url2 = "https://steamcommunity.com/market/search/render/"
+            params = {
+                'query': market_hash_name,
+                'appid': 730,
+                'start': 0,
+                'count': 10,
+                'norender': 1,
+                'search_descriptions': 0,
+                'sort_column': 'name',
+                'sort_dir': 'asc',
+                'country': 'PL',
+                'language': 'polish',
+                'currency': currency_code,
+            }
+            resp2 = _http_get_with_backoff(url2, headers=headers, params=params, timeout=timeout, max_retries=1, initial_sleep=0.5, metrics={})
+            if resp2 is None or resp2.status_code != 200:
+                return None
+            data = resp2.json()
+            results = data.get('results') or []
+            # Prefer exact match po hash_name
+            match = None
+            for it in results:
+                nm = it.get('hash_name') or it.get('market_hash_name') or it.get('name')
+                if isinstance(nm, str) and nm.strip() == market_hash_name:
+                    match = it
+                    break
+            if match is None and results:
+                match = results[0]
+            if not match:
+                return None
+            ad = match.get('asset_description') or {}
+            icon = ad.get('icon_url_large') or ad.get('icon_url')
+            if not icon:
+                asset = match.get('asset') or {}
+                icon = asset.get('icon_url') or asset.get('icon_url_large')
+            if not icon:
+                return None
+            # Normalizuj ścieżki economy/image
+            if icon.startswith('http'):
+                return icon.replace('http://', 'https://')
+            if icon.startswith('/'):
+                return 'https://community.cloudflare.steamstatic.com' + icon
+            if icon.startswith('economy/image/'):
+                return 'https://community.cloudflare.steamstatic.com/' + icon
+            return None
+        except Exception as e:
+            print(f"Ostrzeżenie: fallback search image_url nieudany: {e}", file=sys.stderr)
+            return None
     except Exception as e:
         print(f"Ostrzeżenie: błąd pobierania image_url: {e}", file=sys.stderr)
         return None

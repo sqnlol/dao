@@ -39,18 +39,22 @@ class SearchView:
         style.configure('Dark.TFrame', background='#2E2E2E')
         style.configure('Dark.TLabel', background='#2E2E2E', foreground='white')
         style.configure('Dark.TButton', background='#3A3A3A', foreground='white')
-        header_frame = ttk.Frame(self.frame)
+        # Ciemny (czarny) nagłówek z wyśrodkowanym tytułem
+        style.configure('HeaderDark.TFrame', background='#111111')
+        style.configure('HeaderDark.TLabel', background='#111111', foreground='#ffffff', font=("Arial", 16, "bold"))
+        header_frame = ttk.Frame(self.frame, style='HeaderDark.TFrame')
         header_frame.grid(row=0, column=0, sticky='new', pady=(0, 10))
-        header_frame.grid_columnconfigure(0, weight=1) 
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.grid_columnconfigure(1, weight=1)
+        header_frame.grid_columnconfigure(2, weight=0)
 
-        left_header_group = ttk.Frame(header_frame, style='Dark.TFrame')
-        left_header_group.pack(side='left', anchor='nw')
-        ttk.Label(left_header_group, text="CS2 Skin Analyzer", font=("Arial", 16, "bold"), style='Dark.TLabel').pack(side='left')
+        self.header_title = ttk.Label(header_frame, text="CS2 Skin Analyzer", style='HeaderDark.TLabel', anchor='center')
+        self.header_title.grid(row=0, column=1, sticky='n')
 
         # Prawa strona nagłówka: przycisk Wyloguj (skrajnie po prawej),
         # po jego lewej komunikat o braku cookie, a jeszcze bardziej po lewej etykieta powitania
-        right_header_group = ttk.Frame(header_frame)
-        right_header_group.pack(side='right', anchor='ne')
+        right_header_group = ttk.Frame(header_frame, style='HeaderDark.TFrame')
+        right_header_group.grid(row=0, column=2, sticky='e')
         # Użyj grid wewnątrz grupy, aby precyzyjnie ustawić kolejność: [cookie msg] [Wyloguj] [Witaj, X]
         right_header_group.grid_columnconfigure(0, weight=0)
         right_header_group.grid_columnconfigure(1, weight=0)
@@ -60,8 +64,9 @@ class SearchView:
         self.cookie_mode_label = ttk.Label(right_header_group, text="Brak Cookie - funkcjonalność ograniczona", foreground='gray')
         self.cookie_mode_label.grid(row=0, column=0, padx=(0, 12))
 
-        # Przycisk Wyloguj (środek)
-        self.logout_button = ttk.Button(right_header_group, text="Wyloguj", command=self._go_back_to_login)
+        # Przycisk Wyloguj (środek) — grubsza ramka
+        style.configure('Action.TButton', borderwidth=2, padding=8)
+        self.logout_button = ttk.Button(right_header_group, text="Wyloguj", command=self._go_back_to_login, style='Action.TButton')
         self.logout_button.grid(row=0, column=1, padx=(0, 12))
 
         # Etykieta powitania (skrajnie prawa kolumna)
@@ -126,7 +131,7 @@ class SearchView:
         self.skin_combo.bind("<<ComboboxSelected>>", self.on_skin_select)
 
         # Przycisk wyszukiwania po prawej stronie, zasięg na 3 wiersze
-        self.search_button = ttk.Button(input_frame, text="Pobierz i zapisz", command=self.start_search_thread, state='normal')
+        self.search_button = ttk.Button(input_frame, text="Pobierz i zapisz", command=self.start_search_thread, state='normal', style='Action.TButton')
         self.search_button.grid(row=0, column=4, rowspan=3, padx=(10, 0), sticky='nsew')
         
         self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
@@ -141,7 +146,15 @@ class SearchView:
         self.version_label.pack(side='left', padx=8)
         self.suggestions_label = ttk.Label(info_frame, text="Sugestie: ładowanie...", style='Dark.TLabel')
         self.suggestions_label.pack(side='left', padx=8)
-        ttk.Button(info_frame, text="Odśwież autouzupełnianie", command=self._refresh_suggestions, style='Dark.TButton').pack(side='right', padx=8)
+        ttk.Button(info_frame, text="Odśwież autouzupełnianie", command=self._refresh_suggestions, style='Action.TButton').pack(side='right', padx=8)
+        # Skrót klawiszowy podpowiedź
+        ttk.Label(info_frame, text="Skrót: Ctrl+Enter — Pobierz i zapisz", style='Dark.TLabel').pack(side='right', padx=8)
+
+        # Ciemne tło konsoli statusu
+        try:
+            self.status_text.configure(bg='#111111', fg='#e8e8e8', insertbackground='#ffffff', highlightthickness=0, borderwidth=1)
+        except Exception:
+            pass
 
         self.status_text = scrolledtext.ScrolledText(self.frame, wrap=tk.WORD, state='disabled', height=10)
         self.status_text.grid(row=3, column=0, sticky='nsew', pady=(10, 0))
@@ -151,10 +164,10 @@ class SearchView:
         # 3 kolumny: [0]=Aktualizuj, [1]=etykieta postępu (rozszerza się), [2]=Przerwij
         suggestions_controls.grid_columnconfigure(1, weight=1)
         # Przycisk aktualizacji listy przedmiotów (on-demand)
-        self.update_btn = ttk.Button(suggestions_controls, text="Zaktualizuj listę przedmiotów", command=self._update_suggestions)
+        self.update_btn = ttk.Button(suggestions_controls, text="Zaktualizuj listę przedmiotów", command=self._update_suggestions, style='Action.TButton')
         self.update_btn.grid(row=0, column=0, sticky='w')
         # Przycisk backfill – szybki przebieg po offsetach, żeby domknąć brakujące pozycje
-        self.backfill_btn = ttk.Button(suggestions_controls, text="Backfill braków", command=self._backfill_suggestions)
+        self.backfill_btn = ttk.Button(suggestions_controls, text="Backfill braków", command=self._backfill_suggestions, style='Action.TButton')
         # Umieść poniżej głównego przycisku, aby nie kolidować z etykietą postępu i Anuluj
         self.backfill_btn.grid(row=1, column=0, sticky='w', pady=(4,0))
         # Etykieta postępu między przyciskami
@@ -162,7 +175,7 @@ class SearchView:
         self.inline_progress_label = ttk.Label(suggestions_controls, textvariable=self.inline_progress_var, anchor='center')
         self.inline_progress_label.grid(row=0, column=1, sticky='ew', padx=8)
         # Przycisk anulowania pobierania (na starcie wyłączony)
-        self.cancel_btn = ttk.Button(suggestions_controls, text="Przerwij", command=self._cancel_update, state='disabled')
+        self.cancel_btn = ttk.Button(suggestions_controls, text="Przerwij", command=self._cancel_update, state='disabled', style='Action.TButton')
         self.cancel_btn.grid(row=0, column=2, padx=(12,0))
         # --- AUTO REFRESH CONFIG ---
         auto_frame = ttk.Frame(self.frame)
@@ -183,7 +196,13 @@ class SearchView:
         self.auto_next_label = ttk.Label(auto_frame, textvariable=self.auto_next_var, foreground='gray')
         self.auto_next_label.grid(row=0, column=5, padx=(4,0))
         # przycisk wymuszenia natychmiastowego cyklu
-        self.force_cycle_btn = ttk.Button(auto_frame, text="Cykl teraz", command=self._force_auto_cycle, state='disabled')
+        self.force_cycle_btn = ttk.Button(auto_frame, text="Cykl teraz", command=self._force_auto_cycle, state='disabled', style='Action.TButton')
+
+        # Skrót: Ctrl+Enter uruchamia pobieranie
+        try:
+            self.frame.bind_all('<Control-Return>', lambda e: self.start_search_thread())
+        except Exception:
+            pass
         self.force_cycle_btn.grid(row=0, column=6, padx=(12,0))
         # Pasek postępu pobierania (ukryty na starcie)
         self.progress_var = tk.IntVar(value=0)

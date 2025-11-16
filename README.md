@@ -176,7 +176,47 @@ CS2 Skin Analyzer/
 | Zła najniższa cena | Stare źródło z API | Obecnie liczona z listingu. |
 | 429/503 | Rate limit Steam | Odczekaj; backoff działa automatycznie. |
 
-## Historia Zmian (Changelog) 
+## Historia Zmian (Changelog)
+
+### CS2 Skin Analyzer v0.5 (Tydzień 5):
+
+#### Ekran Główny z Interaktywnym GUI
+
+![gui_main_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/main_screen.png?raw=true)
+*Zrzut: Główny ekran z ciemnym nagłówkiem, wyśrodkowanym tytułem i sidebarową nawigacją.*
+
+#### Zmiana Waluty i Wykresy Cenowe
+
+![gui_currency_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/currency_selector.png?raw=true)
+*Zrzut: Dropdown zmiany waluty (PLN/USD/EUR) w sidebarze.*
+
+#### Zakładka Skrzynie CS2
+
+![gui_cases_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/cases_view.png?raw=true)
+*Zrzut: Widok galerii skrzyń z miniaturkami i przyciskami akcji.*
+
+![gui_case_detail_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/case_detail.png?raw=true)
+*Zrzut: Szczegóły wybranej skrzyni z obrazkiem, nazwą i przyciskami „Szukaj na Steam".*
+
+#### Auto-odświeżanie Sugestii
+
+![gui_auto_refresh_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/auto_refresh.png?raw=true)
+*Zrzut: Ustawienia auto-odświeżania listy przedmiotów z regulacją interwałów.*
+
+| Data | Opis Zmiany / Działania | Status |
+| :--- | :--- | :--- |
+| **Interaktywne GUI** | Dodano ciemny nagłówek z wyśrodkowanym białym tytułem „CS2 Skin Analyzer"; sidebar z nawigacją i hover-efektem (pogrubienie przy najechaniu na „Główna"/„Skrzynie"); wszystkie przyciski akcji (`Action.TButton`) z pogrubionymi ramkami. | Ukończono |
+| **Skrót Klawiszowy** | Dodano skrót `Ctrl+Enter` do szybkiego uruchomienia „Pobierz i zapisz"; hint wyświetlany w pasku informacyjnym. | Ukończono |
+| **Czarne Elementy Estetyczne** | Konsola statusu (logi) z czarnym tłem i jasnym tekstem; czarny pasek nagłówka; sidebar z ciemnym tłem `#1a1a1a`. | Ukończono |
+| **Zmiana Walut** | Dropdown w sidebarze umożliwiający wybór PLN / USD / EUR; automatyczna konwersja cen w wykresach, ofertach i historii; `currency_code` przekazywany do API Steam. | Ukończono |
+| **Wykresy Cenowe z Konwersją** | Wykres automatycznie dostosowuje oś Y do wybranej waluty; hover dymek wyświetla cenę w aktualnej walucie; konwersja tylko dla danych z bazy (dane z API już w docelowej walucie). | Ukończono |
+| **Zakładka „Skrzynie"** | Nowy widok `CasesView` z siatką miniaturek wszystkich skrzyń CS2 ładowanych z folderu `src/img/cases`; kafelki z białym tłem, nazwą i klikalnym podglądem. | Ukończono |
+| **Szczegóły Skrzyni** | `CaseDetailView` wyświetla powiększony obrazek, nazwę i ścieżkę do pliku; przyciski: „Otwórz plik", „Pokaż w folderze", „Szukaj na Steam" (otwiera przeglądarkę z wyszukiwaniem na Steam Market). | Ukończono |
+| **Bezpieczne Ładowanie Obrazków** | Wszystkie obrazy (skrzynie, ikony) ładowane asynchronicznie w wątku pomocniczym; `ImageTk.PhotoImage` tworzony **tylko** w głównym wątku Tkinter (naprawa błędu `main thread is not in main loop`). | Ukończono |
+| **Auto-odświeżanie Sugestii** | Checkbox „Auto-odświeżanie sugestii" z regulacją interwałów (min–max w sekundach); cykliczne pobieranie listy przedmiotów w tle z zapisem do `src/suggestions.txt`; etykieta ETA kolejnego cyklu; przycisk „Cykl teraz" wymuszający natychmiastową aktualizację. | Ukończono |
+| **Interwały Auto-odświeżania** | Użytkownik ustawia zakres czasu (domyślnie 600–900 s); aplikacja losuje delay z tego przedziału po każdym cyklu; możliwość włączenia/wyłączenia i natychmiastowego wymuszenia cyklu. | Ukończono |
+| **Rate Limiting Fixes** | Zwiększono opóźnienia i backoff w `_http_get_with_backoff` (initial: 2.0s, mnożnik: 2.0x, jitter: 0.5–1.5s) oraz opóźnienie między pobieraniem historii a listingów (3.0s zamiast 1.5s), aby uniknąć błędów HTTP 429 od Steam. | Ukończono |
+| **Powiększone Logo** | Logo w sidebarze zwiększone z 64×64 do 80×80 px dla lepszej widoczności. | Ukończono |
 
 ### CS2 Skin Analyzer v0.4 (Tydzień 4):
 

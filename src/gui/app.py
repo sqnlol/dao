@@ -334,27 +334,33 @@ class MarketApp:
         style = ttk.Style()
         style.configure('Sidebar.TFrame', background='#1a1a1a')
         style.configure('SidebarButton.TButton', 
-                       background='#2a2a2a', 
-                       foreground='white',
-                       borderwidth=0,
-                       focuscolor='none',
-                       padding=12,
-                       font=('Arial', 10))
+                   background='#2a2a2a', 
+                   foreground='white',
+                   borderwidth=2,
+                   focuscolor='none',
+                   padding=12,
+                   font=('Arial', 10))
         style.map('SidebarButton.TButton',
-                 background=[('active', '#3a3a3a'), ('pressed', '#4a4a4a')])
+             background=[('active', '#3a3a3a'), ('pressed', '#4a4a4a')])
+        # Styl przycisku na hover (pogrubienie + jaśniejsze tło)
+        style.configure('SidebarButtonHover.TButton',
+                background='#3a3a3a',
+                foreground='white',
+                borderwidth=2,
+                padding=12,
+                font=('Arial', 10, 'bold'))
         
         # Logo w górnej części
         logo_frame = ttk.Frame(self.sidebar, style='Sidebar.TFrame')
         logo_frame.pack(side='top', fill='x', pady=20, padx=10)
-        
+
+        # Wczytaj i pokaż logo z zachowaniem spójnego wcięcia (naprawa IndentationError)
         try:
             from PIL import Image, ImageTk
-            import os
             logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img', 'CS2SkinAnalyzer.png')
             if os.path.exists(logo_path):
                 img = Image.open(logo_path)
-                # Skaluj logo do 64x64 dla sidebaru
-                img.thumbnail((64, 64))
+                img.thumbnail((80, 80))
                 self._sidebar_logo_img = ImageTk.PhotoImage(img)
                 logo_label = tk.Label(logo_frame, image=self._sidebar_logo_img, bg='#1a1a1a')
                 logo_label.pack()
@@ -380,6 +386,14 @@ class MarketApp:
                                     style='SidebarButton.TButton',
                                     command=lambda: self._sidebar_navigate('cases'))
         self.btn_cases.pack(fill='x', pady=2)
+        # Efekt hover dla przycisków w sidebarze
+        try:
+            self.btn_home.bind('<Enter>', lambda e: self.btn_home.configure(style='SidebarButtonHover.TButton'))
+            self.btn_home.bind('<Leave>', lambda e: self.btn_home.configure(style='SidebarButton.TButton'))
+            self.btn_cases.bind('<Enter>', lambda e: self.btn_cases.configure(style='SidebarButtonHover.TButton'))
+            self.btn_cases.bind('<Leave>', lambda e: self.btn_cases.configure(style='SidebarButton.TButton'))
+        except Exception:
+            pass
         
         # Separator przed walutą
         ttk.Frame(menu_frame, height=20, style='Sidebar.TFrame').pack(fill='x', pady=10)
