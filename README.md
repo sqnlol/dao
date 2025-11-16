@@ -182,25 +182,25 @@ CS2 Skin Analyzer/
 
 #### Ekran Główny z Interaktywnym GUI
 
-![gui_main_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/main_screen.png?raw=true)
+![gui_main_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/ekran%20g%C5%82owny.png?raw=true)
 *Zrzut: Główny ekran z ciemnym nagłówkiem, wyśrodkowanym tytułem i sidebarową nawigacją.*
 
 #### Zmiana Waluty i Wykresy Cenowe
 
-![gui_currency_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/currency_selector.png?raw=true)
+![gui_currency_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/waluta.png?raw=true)
 *Zrzut: Dropdown zmiany waluty (PLN/USD/EUR) w sidebarze.*
 
 #### Zakładka Skrzynie CS2
 
-![gui_cases_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/cases_view.png?raw=true)
+![gui_cases_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/skrzynie.png?raw=true)
 *Zrzut: Widok galerii skrzyń z miniaturkami i przyciskami akcji.*
 
-![gui_case_detail_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/case_detail.png?raw=true)
+![gui_case_detail_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/skrzynie%20dokladne.png?raw=true)
 *Zrzut: Szczegóły wybranej skrzyni z obrazkiem, nazwą i przyciskami „Szukaj na Steam".*
 
 #### Auto-odświeżanie Sugestii
 
-![gui_auto_refresh_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/auto_refresh.png?raw=true)
+![gui_auto_refresh_v0.5](https://github.com/sqnlol/dao/blob/main/src/img/week5/autoodswiezanie.png?raw=true)
 *Zrzut: Ustawienia auto-odświeżania listy przedmiotów z regulacją interwałów.*
 
 | Data | Opis Zmiany / Działania | Status |
