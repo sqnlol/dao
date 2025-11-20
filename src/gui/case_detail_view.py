@@ -72,17 +72,20 @@ class CaseDetailView:
     def show_case(self, case: dict):
         """Aktualizuje widok dla wybranej skrzyni."""
         self.current_case = case or {}
-        name = case.get('name') or case.get('path') or 'Skrzynia'
+        name = case.get('name') or 'Skrzynia'
         self.title_label.config(text=f"Skrzynia: {name}")
         self.name_value.config(text=name)
-        self.path_value.config(text=case.get('path') or '-')
-        # Załaduj obrazek (jeśli dostępny)
-        img_path = case.get('path')
-        if img_path and os.path.exists(img_path):
-            self._load_image_async(img_path)
+        
+        # Pokaż ścieżkę cache zamiast starej ścieżki
+        cache_path = case.get('cache_path') or '-'
+        self.path_value.config(text=cache_path)
+        
+        # Załaduj obrazek z cache (jeśli dostępny)
+        if case.get('cache_path') and os.path.exists(case['cache_path']):
+            self._load_image_async(case['cache_path'])
         else:
             try:
-                self.image_label.config(image='', text='(Brak obrazka)')
+                self.image_label.config(image='', text='(Brak w cache)')
                 self._current_photo = None
             except Exception:
                 pass
@@ -92,7 +95,7 @@ class CaseDetailView:
     # -------------------------
     def _open_file(self):
         try:
-            p = (self.current_case or {}).get('path')
+            p = (self.current_case or {}).get('cache_path')
             if p and os.path.exists(p):
                 os.startfile(p)
         except Exception as e:
@@ -100,7 +103,7 @@ class CaseDetailView:
 
     def _reveal_in_folder(self):
         try:
-            p = (self.current_case or {}).get('path')
+            p = (self.current_case or {}).get('cache_path')
             if p and os.path.exists(p):
                 folder = os.path.dirname(p)
                 os.startfile(folder)

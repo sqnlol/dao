@@ -558,10 +558,25 @@ class ResultsView:
         ttk.Label(info_frame, text=f"Łącznie ofert: {total_count}.").pack(anchor='w')
         lp = self.listings_data.get('lowest_price')
         lp_float = self.listings_data.get('lowest_price_float')
+        # Dynamiczna konwersja waluty dla najniższej oferty
+        currency = getattr(self.controller, 'currency', 'PLN')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
         if lp_float is not None:
-            ttk.Label(info_frame, text=f"Najniższa oferta: {lp_float:.2f} {currency_symbol}", foreground='green').pack(anchor='w')
+            lp_converted = lp_float * rate
+            ttk.Label(info_frame, text=f"Najniższa oferta: {lp_converted:.2f} {currency_symbol}", foreground='green').pack(anchor='w')
         elif lp:
-            ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
+            # Spróbuj sparsować liczbę z tekstu i przeliczyć
+            import re
+            match = re.match(r"([0-9]+(?:[.,][0-9]+)?)", str(lp))
+            if match:
+                try:
+                    lp_val = float(match.group(1).replace(",", "."))
+                    lp_converted = lp_val * rate
+                    ttk.Label(info_frame, text=f"Najniższa oferta: {lp_converted:.2f} {currency_symbol}", foreground='green').pack(anchor='w')
+                except Exception:
+                    ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
+            else:
+                ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
 
         # Nawigacja stron
         nav_frame = ttk.Frame(self.listings_section)
@@ -632,15 +647,22 @@ class ResultsView:
             info = child.grid_info()
             if info.get('row') and info.get('row') != 0:
                 child.destroy()
-        # Pobierz symbol waluty z kontrolera
+
+        # Pobierz symbol waluty i kurs z kontrolera
+        currency = getattr(self.controller, 'currency', 'PLN')
         currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+
         # Wyświetlamy bieżącą załadowaną stronę (self._all_listings reprezentuje stronę)
         subset = self._all_listings
         for idx, listing in enumerate(subset, start=1):
             price = listing.get('price_float')
             fee = listing.get('fee')
-            price_text = f"{price:.2f} {currency_symbol}" if price is not None else "N/A"
-            fee_text = f"{fee:.2f} {currency_symbol}" if fee is not None else "N/A"
+            # Dynamiczna konwersja ceny i prowizji na wybraną walutę
+            price_converted = price * rate if price is not None else None
+            fee_converted = fee * rate if fee is not None else None
+            price_text = f"{price_converted:.2f} {currency_symbol}" if price_converted is not None else "N/A"
+            fee_text = f"{fee_converted:.2f} {currency_symbol}" if fee_converted is not None else "N/A"
             base_index = self.current_page * self.page_size
             ttk.Label(parent, text=str(base_index + idx)).grid(row=idx, column=0, padx=5, sticky='w')
             ttk.Label(parent, text=price_text, foreground='green').grid(row=idx, column=1, padx=5, sticky='e')
@@ -821,19 +843,26 @@ class ResultsView:
 
 
     def _fill_history_table(self):
-        """Wypełnia Treeview danymi historycznymi."""
+        """Wypełnia Treeview danymi historycznymi z dynamiczną konwersją waluty."""
         self.history_tree.delete(*self.history_tree.get_children())
-        
+
+        # Pobierz symbol waluty i kurs z kontrolera
+        currency = getattr(self.controller, 'currency', 'PLN')
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+
         for record in self.history_data:
-            # Wersja bez 'quantity'
+            # Dynamiczna konwersja ceny na wybraną walutę
+            price = record.get('price')
+            price_converted = price * rate if price is not None else None
             self.history_tree.insert("", tk.END, values=(
                 f"{record['item_type']}",
                 record['item_wear'] or 'Brak',
                 record['market_hash_name'],
-                f"{record['price']:.2f}",
+                f"{price_converted:.2f} {currency_symbol}" if price_converted is not None else "N/A",
                 record['sale_date_str']
             ))
-            
+
         self.inner_frame.update_idletasks()
         self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
         
@@ -980,10 +1009,29 @@ class ResultsView:
 
     # --- PRZYWRÓCONA FUNKCJA ---
     def _create_summary_label(self, lowest_price_text):
-        """Tworzy etykietę podsumowania (tylko najniższa oferta)."""
+        """Tworzy etykietę podsumowania (tylko najniższa oferta) z dynamiczną konwersją waluty."""
         for widget in self.summary_section.winfo_children():
             widget.destroy()
-        summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {lowest_price_text}")
+
+        # Pobierz symbol waluty i kurs z kontrolera
+        currency = getattr(self.controller, 'currency', 'PLN')
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+
+        # lowest_price_text może być floatem lub stringiem, spróbuj sparsować liczbę
+        price_val = None
+        import re
+        match = re.match(r"([0-9]+(?:[.,][0-9]+)?)", str(lowest_price_text))
+        if match:
+            try:
+                price_val = float(match.group(1).replace(",", "."))
+            except Exception:
+                price_val = None
+        if price_val is not None:
+            price_converted = price_val * rate
+            summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {price_converted:.2f} {currency_symbol}")
+        else:
+            summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {lowest_price_text}")
         summary_label.pack(side='left', padx=5, pady=5)
 
     # --- SORTOWANIE HISTORII ---

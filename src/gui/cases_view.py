@@ -8,6 +8,7 @@ from collections import OrderedDict
 import requests
 from io import BytesIO
 from steam_market import get_item_image_url
+from case_images_cache import get_all_cases_list, download_all_cases_async, is_cached
 
 
 class CasesView:
@@ -24,11 +25,57 @@ class CasesView:
         self._image_cache = OrderedDict()
         self._max_cache_size = 50
         
-        # Dane skrzyń CS2
-        self.cases_data = self._get_cases_data()
+        # Dane skrzyń CS2 - teraz z cache
+        self.cases_data = get_all_cases_list()
+        
+        # Sprawdź czy wszystkie obrazki są w cache
+        self._check_and_download_missing_images()
 
         self._create_widgets()
         
+    def _check_and_download_missing_images(self):
+        """Sprawdza czy wszystkie obrazki są w cache i pobiera brakujące."""
+        missing = [case for case in self.cases_data if not case["cached"]]
+        
+        if missing:
+            print(f"Brakuje {len(missing)} obrazków w cache. Rozpoczynam pobieranie...")
+            
+            # Pobierz cookie z controllera jeśli dostępne
+            login_cookie = getattr(self.controller, 'login_cookie', None)
+            
+            def progress(current, total, case_name, success):
+                status = "✓" if success else "✗"
+                print(f"[{current}/{total}] {status} {case_name}")
+            
+            def completion(results):
+                print(f"\nPobieranie zakończone: {results['success']}/{results['total']} sukcesów")
+                # Odśwież listę skrzyń
+                self.cases_data = get_all_cases_list()
+                # Odśwież widok jeśli okno jest wciąż aktywne
+                try:
+                    self.frame.after(0, self._refresh_cases_grid)
+                except Exception:
+                    pass
+            
+            # Uruchom pobieranie w tle
+            download_all_cases_async(
+                login_cookie=login_cookie,
+                delay=1.5,
+                progress_callback=progress,
+                completion_callback=completion
+            )
+    
+    def _refresh_cases_grid(self):
+        """Odświeża siatkę skrzyń (usuwa starą i tworzy nową)."""
+        try:
+            # Usuń wszystkie widgety z scrollable_frame
+            for widget in self.scrollable_frame.winfo_children():
+                widget.destroy()
+            # Stwórz siatkę na nowo
+            self._create_cases_grid()
+        except Exception as e:
+            print(f"Błąd odświeżania siatki: {e}", file=sys.stderr)
+
     def _derive_name_from_path(self, path: str) -> str:
         try:
             from urllib.parse import unquote
@@ -40,46 +87,6 @@ class CasesView:
         except Exception:
             return os.path.basename(path)
 
-    def _get_cases_data(self):
-        """Wczytuje listę obrazów skrzyń z lokalnego folderu src/img/cases.
-
-        Preferuje .png nad .webp oraz jpg. Deduplikuje po nazwie bazowej pliku.
-        Zwraca listę słowników: {"path": absolute_path, "name": friendly_name}.
-        """
-        try:
-            base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "img", "cases"))
-            if not os.path.isdir(base_dir):
-                print(f"Brak folderu z obrazami skrzyń: {base_dir}", file=sys.stderr)
-                return []
-
-            preferred = {".png": 3, ".webp": 2, ".jpg": 1, ".jpeg": 1}
-            choose = {}
-            exclude = {"chroma_new", "chroma", "skrzynia_chroma_test", "test_resized"}
-
-            for name in os.listdir(base_dir):
-                lower = name.lower()
-                stem, ext = os.path.splitext(lower)
-                if ext not in (".png", ".webp", ".jpg", ".jpeg"):
-                    continue
-                if stem in exclude:
-                    continue
-                cur = choose.get(stem)
-                if cur is None or preferred.get(ext, 0) > preferred.get(os.path.splitext(cur)[1], 0):
-                    choose[stem] = name
-
-            data = []
-            for stem in sorted(choose.keys()):
-                filename = choose[stem]
-                full = os.path.join(base_dir, filename)
-                data.append({"path": full, "name": self._derive_name_from_path(full)})
-
-            if not data:
-                print("Nie znaleziono obrazów skrzyń w src/img/cases", file=sys.stderr)
-            return data
-        except Exception as e:
-            print(f"Błąd skanowania folderu skrzyń: {e}", file=sys.stderr)
-            return []
-    
     def _create_widgets(self):
         # Nagłówek
         header_frame = ttk.Frame(self.frame)
@@ -131,7 +138,7 @@ class CasesView:
             pass
 
     def _create_cases_grid(self):
-        """Tworzy siatkę z kafelkami skrzyń (obrazy z lokalnego folderu)."""
+        """Tworzy siatkę z kafelkami skrzyń (obrazy z cache)."""
         columns = 4  # 4 skrzynie w rzędzie
         
         for idx, case in enumerate(self.cases_data):
@@ -157,16 +164,20 @@ class CasesView:
             img_label.bind("<Button-1>", lambda e, c=case: self._on_case_click(c))
             name_label.bind("<Button-1>", lambda e, c=case: self._on_case_click(c))
 
-            # Załaduj obrazek z dysku
-            self._load_case_image_local(case['path'], img_label)
+            # Załaduj obrazek z cache
+            if case.get('cache_path'):
+                self._load_case_image_from_cache(case['cache_path'], img_label)
+            else:
+                # Jeśli nie ma w cache, pokaż placeholder
+                img_label.config(text="Pobieranie...", font=("Arial", 9), fg='gray')
 
-    def _load_case_image_local(self, image_path, label):
-        """Ładuje obraz lokalnie i skaluje proporcjonalnie do maksymalnej wysokości."""
+    def _load_case_image_from_cache(self, cache_path, label):
+        """Ładuje obraz z cache i skaluje proporcjonalnie do maksymalnej wysokości."""
         import threading
 
         def load_and_set():
             try:
-                img = Image.open(image_path)
+                img = Image.open(cache_path)
                 # Jeśli obraz ma kanał alfa, wypełnij tło na biało dla spójnego wyglądu
                 if img.mode not in ("RGB", "RGBA"):
                     img = img.convert("RGBA")
@@ -189,57 +200,15 @@ class CasesView:
                         label.config(image=photo, text='')
                         label.image = photo
                     except Exception as e:
-                        print(f"Błąd PhotoImage (local): {e}", file=sys.stderr)
+                        print(f"Błąd PhotoImage (cache): {e}", file=sys.stderr)
                         label.config(text="Błąd")
 
                 label.after(0, apply)
             except Exception as e:
-                print(f"Błąd ładowania pliku {image_path}: {e}", file=sys.stderr)
+                print(f"Błąd ładowania z cache {cache_path}: {e}", file=sys.stderr)
                 label.after(0, lambda: label.config(text="Błąd"))
 
         threading.Thread(target=load_and_set, daemon=True).start()
-
-    def _load_case_image(self, market_name, label):
-        """Ładuje obrazek skrzyni przez Steam Market API."""
-        import threading
-        
-        def download_and_set():
-            try:
-                # Pobierz URL obrazka z Steam Market
-                login_cookie = getattr(self.controller, 'login_cookie', None)
-                image_url = get_item_image_url(market_name, login_cookie, currency_code=6, timeout=10)
-                
-                if not image_url:
-                    label.after(0, lambda: label.config(text="Brak URL"))
-                    return
-                
-                # Pobierz obrazek
-                resp = requests.get(image_url, timeout=10)
-                if resp.status_code == 200 and resp.content:
-                    img = Image.open(BytesIO(resp.content))
-                    # Skaluj zachowując proporcje (jak w results_view)
-                    max_h = 180
-                    w, h = img.size
-                    if h > max_h:
-                        new_w = int(w * (max_h / float(h)))
-                        img = img.resize((new_w, max_h), Image.Resampling.LANCZOS)
-                    
-                    def apply():
-                        try:
-                            photo = ImageTk.PhotoImage(img)
-                            label.config(image=photo, text='')
-                            label.image = photo
-                        except Exception as e:
-                            print(f"Błąd PhotoImage: {e}", file=sys.stderr)
-                    
-                    label.after(0, apply)
-                else:
-                    label.after(0, lambda: label.config(text=f"HTTP {resp.status_code}"))
-            except Exception as e:
-                print(f"Błąd pobierania {market_name}: {e}", file=sys.stderr)
-                label.after(0, lambda: label.config(text="Błąd"))
-        
-        threading.Thread(target=download_and_set, daemon=True).start()
 
     def _set_image(self, label, photo):
         """Ustawia obrazek w label (musi być wywołane w głównym wątku)."""
