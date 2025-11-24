@@ -12,7 +12,9 @@ from src.skin_list import (
     SKIN_DATA, WEAPON_CATEGORIES,
     GLOVES, STICKERS, ZEUS_SKINS, GRAFFITI, AGENTS, CONTAINERS, OTHER_TYPES,
     ZEUS_WEAR_MAP, WEAPON_WEAR_MAP, WEAPON_SOUVENIR_MAP, WEAPON_STATTRAK_MAP,
-    KNIVES
+    KNIVES, MUSIC_KITS, MUSIC_KITS_STATTRAK, KEY_ITEMS, CHARM_ITEMS,
+    VIEWER_PASSES, OPERATION_PASSES, COLLECTIBLE_PINS, GIFT_ITEMS, PATCH_ITEMS,
+    TOOL_ITEMS
 )
 
 
@@ -574,6 +576,11 @@ class SearchView:
             except Exception:
                 pass
             self.skin_combo.bind("<<ComboboxSelected>>", self._on_gloves_skin_select)
+            # Rękawice nie mają wariantów StatTrak ani Souvenir
+            self.stattrack_check.config(state='disabled')
+            self.stattrack_var.set(False)
+            self.souvenir_check.config(state='disabled')
+            self.souvenir_var.set(False)
             return
         if selected_cat == 'Naklejka':
             self.label_weapon_type.config(text='Typ naklejki:')
@@ -691,19 +698,20 @@ class SearchView:
             self.souvenir_var.set(False)
             return
         if selected_cat == 'Inne':
+            self.label_weapon_type.config(text='Typ przedmiotu:')
+            other_types = OTHER_TYPES or []
             self.weapon_combo.config(state='readonly')
-            self.weapon_combo['values'] = OTHER_TYPES
-            if OTHER_TYPES:
-                self.weapon_combo.set(OTHER_TYPES[0])
-            # Ukryj skórkę i jakość – placeholder
-            self.label_skin.grid_remove()
-            self.skin_combo.grid_remove()
-            self.label_quality.grid_remove()
-            self.wear_combobox.grid_remove()
-            self.stattrack_check.config(state='disabled')
-            self.stattrack_var.set(False)
-            self.souvenir_check.config(state='disabled')
-            self.souvenir_var.set(False)
+            self.weapon_combo['values'] = other_types
+            if other_types:
+                self.weapon_combo.set(other_types[0])
+            else:
+                self.weapon_combo.set('')
+            try:
+                self.weapon_combo.unbind("<<ComboboxSelected>>")
+            except Exception:
+                pass
+            self.weapon_combo.bind("<<ComboboxSelected>>", self._on_other_type_select)
+            self._configure_other_type_ui(self.weapon_combo.get())
             return
         if selected_cat == 'Pojemnik':
             # Ukryj Typ broni; używamy pola "Rodzaj" (wear_combobox) do wyboru podkategorii
@@ -714,7 +722,9 @@ class SearchView:
                 'Skrzynia',
                 'Pojemnik z naklejkami',
                 'Zestaw (Package)',
-                'Terminal'
+                'Terminal',
+                'Paczka z naszywką',
+                'Skrzynia z zestawem utworów'
             ]
             # Jeśli parsowane typy dostarczone – użyj ich (dla spójności z suggestions)
             try:
@@ -801,6 +811,8 @@ class SearchView:
             sets_souv = CONTAINERS.get('sets_souvenir', []) or []
             sets_other = CONTAINERS.get('sets_other', []) or []
             terminals = CONTAINERS.get('terminals', []) or []
+            patch_packs = CONTAINERS.get('patch_packs', []) or []
+            music_kit_boxes = CONTAINERS.get('music_kit_boxes', []) or []
 
             names = []
             if kind == 'Skrzynia':
@@ -812,6 +824,10 @@ class SearchView:
                 names = sorted(list({*sets_col, *sets_souv, *sets_other}))
             elif kind == 'Terminal':
                 names = terminals
+            elif kind == 'Paczka z naszywką':
+                names = patch_packs
+            elif kind == 'Skrzynia z zestawem utworów':
+                names = music_kit_boxes
             else:
                 names = []
             self.skin_combo.config(state=('readonly' if names else 'disabled'))
@@ -1197,8 +1213,19 @@ class SearchView:
             AGENTS = skin_list_mod.AGENTS
             CONTAINERS = skin_list_mod.CONTAINERS
             OTHER_TYPES = skin_list_mod.OTHER_TYPES
-            global KNIVES
+            global KNIVES, MUSIC_KITS, MUSIC_KITS_STATTRAK, KEY_ITEMS, CHARM_ITEMS
+            global VIEWER_PASSES, OPERATION_PASSES, COLLECTIBLE_PINS, GIFT_ITEMS, PATCH_ITEMS, TOOL_ITEMS
             KNIVES = skin_list_mod.KNIVES
+            MUSIC_KITS = skin_list_mod.MUSIC_KITS
+            MUSIC_KITS_STATTRAK = skin_list_mod.MUSIC_KITS_STATTRAK
+            KEY_ITEMS = skin_list_mod.KEY_ITEMS
+            CHARM_ITEMS = skin_list_mod.CHARM_ITEMS
+            VIEWER_PASSES = skin_list_mod.VIEWER_PASSES
+            OPERATION_PASSES = skin_list_mod.OPERATION_PASSES
+            COLLECTIBLE_PINS = skin_list_mod.COLLECTIBLE_PINS
+            GIFT_ITEMS = skin_list_mod.GIFT_ITEMS
+            PATCH_ITEMS = skin_list_mod.PATCH_ITEMS
+            TOOL_ITEMS = skin_list_mod.TOOL_ITEMS
             # jeśli jesteśmy w kategorii Agent – odśwież listy
             current_cat = self.category_combo.get()
             if current_cat == 'Agent':
@@ -1421,9 +1448,234 @@ class SearchView:
         except Exception as e:
             self.log_message(f"BŁĄD zmiany kolekcji agenta: {e}")
 
+    def _on_other_type_select(self, event):
+        other_type = (self.weapon_combo.get() or '').strip()
+        self._configure_other_type_ui(other_type)
+
+    def _configure_other_type_ui(self, other_type: str):
+        try:
+            try:
+                self.skin_combo.unbind("<<ComboboxSelected>>")
+            except Exception:
+                pass
+            self.label_skin.grid_remove()
+            self.skin_combo.grid_remove()
+            self.label_quality.grid_remove()
+            self.wear_combobox.grid_remove()
+            self.skin_combo.config(state='disabled')
+            self.skin_combo['values'] = []
+            self.skin_combo.set('')
+            self.stattrack_check.config(state='disabled')
+            self.stattrack_var.set(False)
+            self.souvenir_check.config(state='disabled')
+            self.souvenir_var.set(False)
+
+            if other_type == 'Zestaw utworów':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                kits = MUSIC_KITS or []
+                self.skin_combo.config(state='readonly' if kits else 'disabled')
+                self.skin_combo['values'] = kits
+                if kits:
+                    self.skin_combo.set(kits[0])
+                else:
+                    self.skin_combo.set('')
+                self.skin_combo.bind("<<ComboboxSelected>>", self._on_music_kit_select)
+                self._refresh_music_kit_stattrak()
+                return
+
+            if other_type == 'Klucz':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                keys = KEY_ITEMS or []
+                self.skin_combo.config(state='readonly' if keys else 'disabled')
+                self.skin_combo['values'] = keys
+                if keys:
+                    self.skin_combo.set(keys[0])
+                else:
+                    self.skin_combo.set('')
+                return
+
+            if other_type == 'Przywieszka':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                charms = CHARM_ITEMS or []
+                self.skin_combo.config(state='readonly' if charms else 'disabled')
+                self.skin_combo['values'] = charms
+                if charms:
+                    self.skin_combo.set(charms[0])
+                else:
+                    self.skin_combo.set('')
+                return
+
+            if other_type == 'Przepustka':
+                self.label_quality.config(text='Typ przepustki:')
+                self.label_quality.grid()
+                self.wear_combobox.grid()
+                pass_types = ['Przepustka widza', 'Przepustka operacji']
+                self.wear_combobox.config(state='readonly')
+                self.wear_combobox['values'] = pass_types
+                selected_type = pass_types[0] if pass_types else ''
+                if selected_type:
+                    self.wear_combobox.set(selected_type)
+                else:
+                    self.wear_combobox.set('')
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                self._set_pass_names(selected_type)
+                self.wear_combobox.bind("<<ComboboxSelected>>", self._on_pass_type_select)
+                return
+
+            if other_type == 'Przedmiot kolekcjonerski':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                pins = COLLECTIBLE_PINS or []
+                self.skin_combo.config(state='readonly' if pins else 'disabled')
+                self.skin_combo['values'] = pins
+                if pins:
+                    self.skin_combo.set(pins[0])
+                else:
+                    self.skin_combo.set('')
+                return
+
+            if other_type == 'Prezent':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                gifts = GIFT_ITEMS or []
+                self.skin_combo.config(state='readonly' if gifts else 'disabled')
+                self.skin_combo['values'] = gifts
+                if gifts:
+                    self.skin_combo.set(gifts[0])
+                else:
+                    self.skin_combo.set('')
+                return
+
+            if other_type == 'Naszywka':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                patches = PATCH_ITEMS or []
+                self.skin_combo.config(state='readonly' if patches else 'disabled')
+                self.skin_combo['values'] = patches
+                if patches:
+                    self.skin_combo.set(patches[0])
+                else:
+                    self.skin_combo.set('')
+                return
+
+            if other_type == 'Narzędzie':
+                self.label_skin.config(text='Nazwa:')
+                self.label_skin.grid()
+                self.skin_combo.grid()
+                tools = TOOL_ITEMS or []
+                self.skin_combo.config(state='readonly' if tools else 'disabled')
+                self.skin_combo['values'] = tools
+                if tools:
+                    self.skin_combo.set(tools[0])
+                else:
+                    self.skin_combo.set('')
+                return
+
+            if other_type:
+                self.log_message(f"INFO: Kategoria 'Inne' nie ma jeszcze konfiguracji dla typu '{other_type}'.")
+        except Exception as exc:
+            self.log_message(f"BŁĄD konfiguracji typu '{other_type}': {exc}")
+
+    def _on_music_kit_select(self, event):
+        self._refresh_music_kit_stattrak()
+
+    def _refresh_music_kit_stattrak(self):
+        try:
+            kit_name = (self.skin_combo.get() or '').strip()
+            if kit_name and kit_name in MUSIC_KITS_STATTRAK:
+                self.stattrack_check.config(state='normal')
+            else:
+                self.stattrack_check.config(state='disabled')
+                self.stattrack_var.set(False)
+        except Exception:
+            self.stattrack_check.config(state='disabled')
+            self.stattrack_var.set(False)
+
+    def _on_pass_type_select(self, event):
+        pass_label = self.wear_combobox.get()
+        self._set_pass_names(pass_label)
+
+    def _set_pass_names(self, pass_label: str):
+        try:
+            mapping = {
+                'Przepustka widza': VIEWER_PASSES or [],
+                'Przepustka operacji': OPERATION_PASSES or [],
+            }
+            names = mapping.get(pass_label, [])
+            self.skin_combo.config(state='readonly' if names else 'disabled')
+            self.skin_combo['values'] = names
+            if names:
+                self.skin_combo.set(names[0])
+            else:
+                self.skin_combo.set('')
+        except Exception:
+            self.skin_combo.config(state='disabled')
+            self.skin_combo['values'] = []
+            self.skin_combo.set('')
+
     def _build_name_other(self) -> str:
         weapon, _skin, _wear = self._common_inputs()
         # Na razie brak wsparcia detali – tylko typ
+        if weapon == 'Zestaw utworów':
+            kit_name = (self.skin_combo.get() or '').strip()
+            if not kit_name:
+                self.log_message("BŁĄD: Wybierz nazwę zestawu utworów.")
+                return ''
+            prefix = "StatTrak™ " if self.stattrack_var.get() else ''
+            return f"{prefix}Music Kit | {kit_name}"
+        if weapon == 'Klucz':
+            key_name = (self.skin_combo.get() or '').strip()
+            if not key_name:
+                self.log_message("BŁĄD: Wybierz nazwę klucza.")
+                return ''
+            return key_name
+        if weapon == 'Przywieszka':
+            charm_name = (self.skin_combo.get() or '').strip()
+            if not charm_name:
+                self.log_message("BŁĄD: Wybierz nazwę przywieszki.")
+                return ''
+            return f"Charm | {charm_name}"
+        if weapon == 'Przepustka':
+            pass_name = (self.skin_combo.get() or '').strip()
+            if not pass_name:
+                self.log_message("BŁĄD: Wybierz nazwę przepustki.")
+                return ''
+            return pass_name
+        if weapon == 'Przedmiot kolekcjonerski':
+            pin_name = (self.skin_combo.get() or '').strip()
+            if not pin_name:
+                self.log_message("BŁĄD: Wybierz nazwę pinu kolekcjonerskiego.")
+                return ''
+            return pin_name
+        if weapon == 'Prezent':
+            gift_name = (self.skin_combo.get() or '').strip()
+            if not gift_name:
+                self.log_message("BŁĄD: Wybierz nazwę prezentu.")
+                return ''
+            return gift_name
+        if weapon == 'Naszywka':
+            patch_name = (self.skin_combo.get() or '').strip()
+            if not patch_name:
+                self.log_message("BŁĄD: Wybierz nazwę naszywki.")
+                return ''
+            return f"Patch | {patch_name}"
+        if weapon == 'Narzędzie':
+            tool_name = (self.skin_combo.get() or '').strip()
+            if not tool_name:
+                self.log_message("BŁĄD: Wybierz nazwę narzędzia.")
+                return ''
+            return tool_name
         self.log_message("INFO: Kategoria 'Inne' nie ma jeszcze pełnego wsparcia budowania nazw.")
         return weapon
 

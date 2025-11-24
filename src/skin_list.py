@@ -10,9 +10,12 @@ Dla skrzynek, wartość to pusta lista [].
 
 import json, os, sys
 try:
-    import suggestions_loader  # dynamic parsing of suggestions.txt
+    from src import suggestions_loader  # prefer package import for frozen builds
 except ImportError:
-    suggestions_loader = None
+    try:
+        import suggestions_loader  # fallback when running directly from src
+    except ImportError:
+        suggestions_loader = None
 
 GENERATED_JSON = os.path.join('src', 'skin_list_generated.json')
 
@@ -1495,7 +1498,14 @@ if _CONTAINERS_RAW:
     CONTAINERS = _CONTAINERS_RAW
 else:
     CONTAINERS = {
-        'types': ["Skrzynia", "Pojemnik z naklejkami", "Zestaw (Package)", "Terminal"],
+        'types': [
+            "Skrzynia",
+            "Pojemnik z naklejkami",
+            "Zestaw (Package)",
+            "Terminal",
+            "Paczka z naszywką",
+            "Skrzynia z zestawem utworów"
+        ],
         'cases': ["Revolution Case", "Dreams & Nightmares Case", "Snakebite Case"],
         'common': ["Storage Unit", "Weapon Case", "Collectible Capsule"],
         'event_containers': ["ESL One Cologne 2015", "Atlanta 2017", "Katowice 2019"],
@@ -1503,7 +1513,95 @@ else:
         'sets_souvenir': ["Souvenir 2019 Inferno Package", "Souvenir 2019 Mirage Package"],
         'sets_other': ["2022 Dust II Package", "Ancient Package"],
         'terminals': ["Kilowatt Case Terminal", "Ambush Collection Terminal"],
+        'patch_packs': [
+            "CS:GO Patch Pack",
+            "Half-Life: Alyx Patch Pack",
+            "Stockholm 2021 Challengers Patch Pack",
+            "Stockholm 2021 Contenders Patch Pack",
+            "Stockholm 2021 Legends Patch Pack",
+        ],
+        'music_kit_boxes': [
+            "Deluge Music Kit Box",
+            "Initiators Music Kit Box",
+            "Masterminds Music Kit Box",
+            "Masterminds 2 Music Kit Box",
+        ],
     }
+
+_OTHER_RAW = _SUG.get('OTHER') if _SUG else None
+if _OTHER_RAW:
+    MUSIC_KITS = _OTHER_RAW.get('music_kits') or []
+    _music_kits_stattrak = _OTHER_RAW.get('music_kits_stattrak') or []
+    KEY_ITEMS = _OTHER_RAW.get('keys') or []
+    CHARM_ITEMS = _OTHER_RAW.get('charms') or []
+    VIEWER_PASSES = _OTHER_RAW.get('passes_viewer') or []
+    OPERATION_PASSES = _OTHER_RAW.get('passes_operation') or []
+    COLLECTIBLE_PINS = _OTHER_RAW.get('collectible_pins') or []
+    GIFT_ITEMS = _OTHER_RAW.get('gifts') or []
+    PATCH_ITEMS = _OTHER_RAW.get('patches') or []
+    TOOL_ITEMS = _OTHER_RAW.get('tools') or []
+else:
+    MUSIC_KITS = [
+        "3kliksphilip, Heading for the Source",
+        "AWOLNATION, I Am",
+        "Austin Wintory, Desert Fire",
+        "Damjan Mravunac, The Talos Principle",
+        "Daniel Sadowski, Total Domination",
+        "Midnight Riders, All I Want for Christmas",
+    ]
+    _music_kits_stattrak = list(MUSIC_KITS)
+    KEY_ITEMS = [
+        "CS:GO Case Key",
+        "CS:GO Capsule Key",
+        "Chroma Case Key",
+        "Gamma Case Key",
+        "Gamma 2 Case Key",
+        "Clutch Case Key",
+    ]
+    CHARM_ITEMS = [
+        "8 Ball IGL",
+        "Baby Karat CT",
+        "Baby Karat T",
+        "Baby's AK",
+        "Backsplash",
+    ]
+    VIEWER_PASSES = [
+        "Copenhagen 2024 Viewer Pass",
+        "Copenhagen 2024 Viewer Pass + 3 Souvenir Tokens",
+        "Paris 2023 Viewer Pass",
+        "Paris 2023 Viewer Pass + 3 Souvenir Tokens",
+    ]
+    OPERATION_PASSES = [
+        "Operation Broken Fang Premium Pass",
+        "Operation Riptide Premium Pass",
+        "Operation Shattered Web Premium Pass",
+        "Operation Hydra Access Pass",
+    ]
+    COLLECTIBLE_PINS = [
+        "Alyx Pin",
+        "Black Mesa Pin",
+        "Bloodhound Pin",
+        "Bravo Pin",
+        "Phoenix Pin",
+    ]
+    GIFT_ITEMS = [
+        "Audience Participation Parcel",
+        "Gift Package",
+        "Pallet of Presents",
+    ]
+    PATCH_ITEMS = [
+        "Abandon Hope",
+        "Alyx",
+        "Astralis (Gold) | Stockholm 2021",
+        "BIG (Gold) | Stockholm 2021",
+        "Virtus.pro (Gold) | Stockholm 2021",
+    ]
+    TOOL_ITEMS = [
+        "StatTrak™ Swap Tool",
+        "Name Tag",
+    ]
+
+MUSIC_KITS_STATTRAK = set(_music_kits_stattrak)
 
 OTHER_TYPES = ["Zestaw utworów", "Klucz", "Przywieszka", "Przepustka", "Przedmiot kolekcjonerski", "Prezent", "Naszywka", "Narzędzie"]
 

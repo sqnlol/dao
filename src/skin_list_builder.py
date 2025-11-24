@@ -5,9 +5,13 @@ import json
 import sys
 from collections import defaultdict
 
+try:
+    from src import resource_paths
+except ImportError:  # Allow running directly from src directory during development
+    import resource_paths
 from src import steam_market
 
-SUGGESTIONS_FILE = os.path.join('src', 'suggestions.txt')
+SUGGESTIONS_FILE = resource_paths.get_writable_suggestions_path()
 OUTPUT_JSON = os.path.join('src', 'skin_list_generated.json')
 
 

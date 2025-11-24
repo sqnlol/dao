@@ -5,6 +5,8 @@ import sys
 import os 
 import threading 
 
+from src import resource_paths
+
 # --- POPRAWIONE IMPORTY ---
 # Musimy odwoływać się z poziomu 'src'
 from src.gui.login_view import LoginView
@@ -15,7 +17,7 @@ from src.gui.case_detail_view import CaseDetailView
 from src import steam_market
 # --- KONIEC POPRAWEK ---
 
-SUGGESTIONS_FILE = "src/suggestions.txt"
+SUGGESTIONS_FILE = resource_paths.get_writable_suggestions_path()
 
 class MarketApp:
     def __init__(self, root):
@@ -522,15 +524,39 @@ class MarketApp:
     # ------------------------------------------------------------------
     def _load_existing_suggestions_only(self):
         """Wczytuje sugestie wyłącznie z pliku (jeśli istnieje). Nie pobiera z sieci."""
-        if os.path.exists(SUGGESTIONS_FILE):
-            try:
-                with open(SUGGESTIONS_FILE, 'r', encoding='utf-8') as f:
-                    self.all_suggestions = [line.strip() for line in f if line.strip()]
-                print(f"Wczytano {len(self.all_suggestions)} sugestii z pliku: {SUGGESTIONS_FILE}")
-            except Exception as e:
-                print(f"Błąd wczytywania sugestii z pliku: {e}.", file=sys.stderr)
-        else:
+        try:
+            suggestions = self._read_suggestions_from_disk()
+            self.all_suggestions = suggestions
+            print(f"Wczytano {len(self.all_suggestions)} sugestii z pliku: {SUGGESTIONS_FILE}")
+        except FileNotFoundError:
             print("Brak pliku suggestions.txt – pobieranie dostępne z poziomu przycisku w UI.")
+        except Exception as e:
+            print(f"Błąd wczytywania sugestii z pliku: {e}.", file=sys.stderr)
+
+    def _read_suggestions_from_disk(self):
+        with open(SUGGESTIONS_FILE, 'r', encoding='utf-8') as f:
+            return [line.strip() for line in f if line.strip()]
+
+    def _fetch_suggestions_async(self):
+        """Lekki reload sugestii z lokalnego pliku (bez pobierania)."""
+        def worker():
+            self._enqueue_log("Odświeżanie autouzupełniania z lokalnego pliku...")
+            try:
+                suggestions = self._read_suggestions_from_disk()
+            except FileNotFoundError:
+                self._enqueue_log("Brak pliku suggestions.txt – użyj przycisku 'Zaktualizuj listę przedmiotów'.")
+                return
+            except Exception as e:
+                self._enqueue_log(f"Błąd odświeżania autouzupełniania: {e}")
+                return
+            self.all_suggestions = suggestions
+            self._enqueue_log(f"Załadowano {len(suggestions)} sugestii. Przeładowuję kategorie...")
+            try:
+                self.root.after(0, self._notify_search_view_suggestions_ready)
+            except Exception:
+                pass
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def update_suggestions_async(self):
         """Pobiera/aktualizuje listę sugestii na żądanie użytkownika (w tle)."""

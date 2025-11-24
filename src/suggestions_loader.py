@@ -1,10 +1,27 @@
 # src/suggestions_loader.py
 
 import os
+import sys
 from typing import Dict, List, Set, Tuple
 import re
 
-SUGGESTIONS_FILE = os.path.join(os.path.dirname(__file__), 'suggestions.txt')
+try:
+    from src import resource_paths
+except ImportError:  # Dev fallback when running directly from src folder
+    import resource_paths
+
+SUGGESTIONS_FILE = resource_paths.get_writable_suggestions_path()
+
+GIFT_ITEM_NAMES = {
+    'Audience Participation Parcel',
+    'Gift Package',
+    'Pallet of Presents',
+}
+
+TOOL_ITEM_NAMES = {
+    'StatTrak™ Swap Tool',
+    'Name Tag',
+}
 
 AGENT_COLLECTION_HINTS = {
     'The Professionals', 'Gendarmerie Nationale', 'Guerrilla Warfare', 'NZSAS', 'Phoenix',
@@ -64,6 +81,7 @@ def _split_paren(value: str) -> Tuple[str, str]:
 
 def build_structured_suggestions() -> Dict[str, object]:
     if not os.path.exists(SUGGESTIONS_FILE):
+        print(f"Brak suggestions.txt w ścieżce: {SUGGESTIONS_FILE}", file=sys.stderr)
         return {}
 
     gloves_types: Set[str] = set()
@@ -108,6 +126,19 @@ def build_structured_suggestions() -> Dict[str, object]:
     cont_sets_souvenir: Set[str] = set()
     cont_sets_other: Set[str] = set()
     cont_terminals: Set[str] = set()
+    cont_patch_packs: Set[str] = set()
+    cont_music_kit_boxes: Set[str] = set()
+
+    music_kits: Set[str] = set()
+    music_kits_stattrak: Set[str] = set()
+    key_items: Set[str] = set()
+    charm_items: Set[str] = set()
+    collectible_pins: Set[str] = set()
+    viewer_passes: Set[str] = set()
+    operation_passes: Set[str] = set()
+    patch_items: Set[str] = set()
+    tool_items: Set[str] = set()
+    gift_items: Set[str] = set()
 
     try:
         with open(SUGGESTIONS_FILE, 'r', encoding='utf-8') as f:
@@ -162,6 +193,31 @@ def build_structured_suggestions() -> Dict[str, object]:
                                 if base not in graffiti_name_to_colors:
                                     graffiti_name_to_colors[base] = set()
                                 graffiti_name_to_colors[base].add(color)
+                        continue
+                    if left == 'Music Kit':
+                        kit_name = right.strip()
+                        if kit_name:
+                            music_kits.add(kit_name)
+                        continue
+                    if left == 'StatTrak™ Music Kit':
+                        kit_name = right.strip()
+                        if kit_name:
+                            music_kits.add(kit_name)
+                            music_kits_stattrak.add(kit_name)
+                        continue
+                    if left == 'Charm':
+                        charm_name = right.strip()
+                        if charm_name:
+                            charm_items.add(charm_name)
+                        continue
+                    if left == 'Patch':
+                        patch_name = right.strip()
+                        if patch_name:
+                            patch_items.add(patch_name)
+                        continue
+                    if left.endswith('Pin') and '|' not in left:
+                        pin_name = f"{left.strip()}"
+                        collectible_pins.add(pin_name)
                         continue
                     # Zeus
                     if left == 'Zeus x27':
@@ -245,11 +301,26 @@ def build_structured_suggestions() -> Dict[str, object]:
                             knives_types.add(base_type)
                         # If there is a pipe, it would be handled in the earlier branch
                         continue
+                    if s.endswith(' Pin') or s.endswith('Pin'):
+                        collectible_pins.add(s)
+                        continue
+                    if s in GIFT_ITEM_NAMES:
+                        gift_items.add(s)
+                        continue
+                    if s in TOOL_ITEM_NAMES:
+                        tool_items.add(s)
+                        continue
                     if s.endswith(' Case'):
                         cont_cases.add(s)
                         continue
                     if s.endswith(' Capsule'):
                         cont_common.add(s)
+                        continue
+                    if s.endswith('Music Kit Box'):
+                        cont_music_kit_boxes.add(s)
+                        continue
+                    if s.endswith('Patch Pack'):
+                        cont_patch_packs.add(s)
                         continue
                     if 'Souvenir' in s and 'Package' in s:
                         cont_sets_souvenir.add(s)
@@ -266,6 +337,15 @@ def build_structured_suggestions() -> Dict[str, object]:
                     # Heuristic event containers (RMR, Major, etc.)
                     if any(tok in s for tok in ['RMR', 'Challengers', 'Contenders', 'Legends']):
                         cont_event.add(s)
+                        continue
+                    if s.endswith(' Key'):
+                        key_items.add(s)
+                        continue
+                    if 'Viewer Pass' in s:
+                        viewer_passes.add(s)
+                        continue
+                    if s.startswith('Operation ') and 'Pass' in s:
+                        operation_passes.add(s)
                         continue
     except Exception:
         # On any error, return empty -> caller should keep defaults
@@ -333,8 +413,14 @@ def build_structured_suggestions() -> Dict[str, object]:
     except Exception:
         pass
 
+    container_types = ["Skrzynia", "Pojemnik z naklejkami", "Zestaw (Package)", "Terminal"]
+    if cont_patch_packs:
+        container_types.append("Paczka z naszywką")
+    if cont_music_kit_boxes:
+        container_types.append("Skrzynia z zestawem utworów")
+
     containers_struct = {
-        'types': ["Skrzynia", "Pojemnik z naklejkami", "Zestaw (Package)", "Terminal"],
+        'types': container_types,
         'cases': sorted(list(cont_cases)) if cont_cases else [],
         'common': sorted(list(cont_common)) if cont_common else [],
         'event_containers': sorted(list(cont_event)) if cont_event else [],
@@ -342,6 +428,8 @@ def build_structured_suggestions() -> Dict[str, object]:
         'sets_souvenir': sorted(list(cont_sets_souvenir)) if cont_sets_souvenir else [],
         'sets_other': sorted(list(cont_sets_other)) if cont_sets_other else [],
         'terminals': sorted(list(cont_terminals)) if cont_terminals else [],
+        'patch_packs': sorted(list(cont_patch_packs)) if cont_patch_packs else [],
+        'music_kit_boxes': sorted(list(cont_music_kit_boxes)) if cont_music_kit_boxes else [],
     }
 
     weapons_struct = {
@@ -349,6 +437,19 @@ def build_structured_suggestions() -> Dict[str, object]:
         'wears': {w: {sn: sorted(list(ws)) for sn, ws in mp.items()} for w, mp in weapon_skin_to_wears.items()} if weapon_skin_to_wears else {},
         'souvenir': {w: sorted(list(s)) for w, s in weapon_souvenir_skins.items()} if weapon_souvenir_skins else {},
         'stattrak': {w: sorted(list(s)) for w, s in weapon_stattrak_skins.items()} if weapon_stattrak_skins else {},
+    }
+
+    other_struct = {
+        'music_kits': sorted(list(music_kits)) if music_kits else [],
+        'music_kits_stattrak': sorted(list(music_kits_stattrak)) if music_kits_stattrak else [],
+        'keys': sorted(list(key_items)) if key_items else [],
+        'charms': sorted(list(charm_items)) if charm_items else [],
+        'collectible_pins': sorted(list(collectible_pins)) if collectible_pins else [],
+        'passes_viewer': sorted(list(viewer_passes)) if viewer_passes else [],
+        'passes_operation': sorted(list(operation_passes)) if operation_passes else [],
+        'gifts': sorted(list(gift_items)) if gift_items else [],
+        'patches': sorted(list(patch_items)) if patch_items else [],
+        'tools': sorted(list(tool_items)) if tool_items else [],
     }
 
     return {
@@ -368,4 +469,5 @@ def build_structured_suggestions() -> Dict[str, object]:
             'wear_map': {t: {sn: sorted(list(ws)) for sn, ws in mp.items()} for t, mp in knives_wear_map.items()} if knives_wear_map else {}
         },
         'WEAPONS': weapons_struct,
+        'OTHER': other_struct,
     }

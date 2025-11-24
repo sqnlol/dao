@@ -6,6 +6,12 @@ import sys
 import random
 from urllib.parse import quote
 
+from src import resource_paths
+
+SUGGESTIONS_FILE_PATH = resource_paths.get_writable_suggestions_path()
+SUGGESTIONS_PROGRESS_PATH = resource_paths.get_data_path('suggestions.progress.json')
+SUGGESTIONS_PARTIAL_PATH = resource_paths.get_data_path('suggestions.partial.txt')
+
 # ------------------------------------------------------------------
 # STAŁE
 # ------------------------------------------------------------------
@@ -426,11 +432,11 @@ def fetch_market_listings(market_hash_name, login_cookie=None, count=10):
 # API: LISTA WSZYSTKICH PRZEDMIOTÓW (DLA SUGESTII)
 # ------------------------------------------------------------------
 def fetch_all_csgo_items(
-    output_file_path: str = "src/suggestions.txt",
+    output_file_path: str = SUGGESTIONS_FILE_PATH,
     page_size: int = 100,
     resume: bool = True,
-    progress_path: str = "src/suggestions.progress.json",
-    partial_path: str = "src/suggestions.partial.txt",
+    progress_path: str = SUGGESTIONS_PROGRESS_PATH,
+    partial_path: str = SUGGESTIONS_PARTIAL_PATH,
     log_callback=None,
     cancel_event=None,
 ):
@@ -472,6 +478,8 @@ def fetch_all_csgo_items(
         # otwórz plik partial do dopisywania
         import os
         os.makedirs(os.path.dirname(partial_path) or '.', exist_ok=True)
+        os.makedirs(os.path.dirname(output_file_path) or '.', exist_ok=True)
+        os.makedirs(os.path.dirname(progress_path) or '.', exist_ok=True)
         partial_file = open(partial_path, 'a', encoding='utf-8')
     except Exception as e:
         print(f"Ostrzeżenie: problem z inicjalizacją plików wznowienia: {e}", file=sys.stderr)

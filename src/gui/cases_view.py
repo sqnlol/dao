@@ -7,8 +7,8 @@ from PIL import Image, ImageTk
 from collections import OrderedDict
 import requests
 from io import BytesIO
-from steam_market import get_item_image_url
-from case_images_cache import get_all_cases_list, download_all_cases_async, is_cached
+from src import steam_market
+from src.case_images_cache import get_all_cases_list, download_all_cases_async, is_cached
 
 
 class CasesView:
