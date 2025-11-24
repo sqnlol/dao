@@ -173,7 +173,7 @@ CS2 Skin Analyzer/
 | :--- | :--- | :--- |
 | Brak historii cen | Cookie wygasło lub brak | Podaj aktualne `steamLoginSecure`. |
 | Mało ofert | Limit API / brak dalszych stron | Spróbuj ponownie; możliwy rate limit. |
-| Zła najniższa cena | Stare Ĺşródło z API | Obecnie liczona z listingu. |
+| Zła najniższa cena | Stare źródło z API | Obecnie liczona z listingu. |
 | 429/503 | Rate limit Steam | Odczekaj; backoff działa automatycznie. |
 
 ## Historia Zmian (Changelog)
@@ -186,7 +186,7 @@ CS2 Skin Analyzer/
 
 #### Cache obrazków skrzyń i akcje w widoku szczegółów
 
-- `CasesView` wczytuje listę skrzyń z modułu `case_images_cache`, sprawdza brakujące zasoby i w tle pobiera ich miniatury prosto ze Steam Market (z adaptacyjnym opóĹşnieniem i logami postępu). Po zakończeniu siatka kafelków automatycznie się odświeża, dzięki czemu widok zawsze pokazuje realne obrazki, a nie placeholdery.
+- `CasesView` wczytuje listę skrzyń z modułu `case_images_cache`, sprawdza brakujące zasoby i w tle pobiera ich miniatury prosto ze Steam Market (z adaptacyjnym opóźnieniem i logami postępu). Po zakończeniu siatka kafelków automatycznie się odświeża, dzięki czemu widok zawsze pokazuje realne obrazki, a nie placeholdery.
 - `CaseDetailView` korzysta już wyłącznie z lokalnego cacheâ€™u i daje szybkie akcje: "Otwórz plik", "Pokaż w folderze" oraz "Szukaj na Steam". Pozwala to szybko przejść od galerii do plików lub strony społeczności bez ręcznego szukania ścieżek.
 
 #### Sugestie przeniesione do katalogu użytkownika i szybkie odświeżanie
@@ -208,7 +208,7 @@ CS2 Skin Analyzer/
 | :--- | :--- | :--- | :--- |
 | Brak zapisu sugestii w buildzie `.exe` | Autouzupełnianie nie aktualizowało się (plik w katalogu tymczasowym, brak zapisu). | Rozwiązano | Przeniesienie `suggestions.txt` do `%LOCALAPPDATA%` przez `resource_paths`. |
 | Miniatury skrzyń nie odświeżały się | Po pobraniu obrazków dalej placeholdery w kafelkach. | Rozwiązano | Callback końcowy wątku pobierania wywołuje przebudowę gridu `CasesView`. |
-| HTTP 429 przy masowym pobieraniu obrazków | Zbyt szybka sekwencja GET powodowała blokady. | Rozwiązano | Adaptacyjne opóĹşnienie + exponential backoff + jitter + rozrzedzenie żądań. |
+| HTTP 429 przy masowym pobieraniu obrazków | Zbyt szybka sekwencja GET powodowała blokady. | Rozwiązano | Adaptacyjne opóźnienie + exponential backoff + jitter + rozrzedzenie żądań. |
 | Powolne odświeżanie taksonomii po aktualizacji sugestii | Comboboxy długo nie widziały nowych kategorii. | Rozwiązano | Wątek `_fetch_suggestions_async` + ponowny import `skin_list` tuż po wczytaniu. |
 | Niejednolity styl komponentów | Różne marginesy, wysokości przycisków. | W trakcie | Ujednolicenie styli (`Action.TButton`, spacing); dalsze korekty. |
 | Potencjalne przepełnienie LRU cache obrazków | Długie sesje mogą zwiększać użycie RAM. | W toku | Plan ograniczenia rozmiaru cache i usuwania najstarszych wpisów. |
@@ -238,7 +238,7 @@ CS2 Skin Analyzer/
 | Zawieszanie przy braku odpowiedzi Steam | Brak szybkiej ścieżki przerwania przy długim oczekiwaniu. | Planowane | Dodanie globalnych timeoutów i liczników prób. |
 | Powielone logi prefetchu | Wielokrotne wpisy "prefetch" zaciemniały konsolę. | Planowane | Agregacja metryk i pojedynczy log podsumowujący. |
 | Brak walidacji formatu cookie w UI | Błędne wklejenie skróconego cookie nie dawało ostrzeżenia. | Planowane | Prosta regex walidacja długości/znaków przed akceptacją. |
-| Hover wykresu częściowo nachodził na krawędĹş okna | Dymek czasem opuszczał obszar osi. | Rozwiązano | Dodano logikę flipowania pozycji przy krawędziach. |
+| Hover wykresu częściowo nachodził na krawędź okna | Dymek czasem opuszczał obszar osi. | Rozwiązano | Dodano logikę flipowania pozycji przy krawędziach. |
 
 #### Zmiana Waluty i Wykresy Cenowe
 
@@ -267,10 +267,10 @@ CS2 Skin Analyzer/
 | **Wykresy Cenowe z Konwersją** | Wykres automatycznie dostosowuje oś Y do wybranej waluty; hover dymek wyświetla cenę w aktualnej walucie; konwersja tylko dla danych z bazy (dane z API już w docelowej walucie). | Ukończono |
 | **Zakładka "Skrzynie"** | Nowy widok `CasesView` z siatką miniaturek wszystkich skrzyń CS2 ładowanych z folderu `src/img/cases`; kafelki z białym tłem, nazwą i klikalnym podglądem. | Ukończono |
 | **Szczegóły Skrzyni** | `CaseDetailView` wyświetla powiększony obrazek, nazwę i ścieżkę do pliku; przyciski: "Otwórz plik", "Pokaż w folderze", "Szukaj na Steam" (otwiera przeglądarkę z wyszukiwaniem na Steam Market). | Ukończono |
-| **Bezpieczne Ĺadowanie Obrazków** | Wszystkie obrazy (skrzynie, ikony) ładowane asynchronicznie w wątku pomocniczym; `ImageTk.PhotoImage` tworzony **tylko** w głównym wątku Tkinter (naprawa błędu `main thread is not in main loop`). | Ukończono |
+| **Bezpieczne Ładowanie Obrazków** | Wszystkie obrazy (skrzynie, ikony) ładowane asynchronicznie w wątku pomocniczym; `ImageTk.PhotoImage` tworzony **tylko** w głównym wątku Tkinter (naprawa błędu `main thread is not in main loop`). | Ukończono |
 | **Auto-odświeżanie Sugestii** | Checkbox "Auto-odświeżanie sugestii" z regulacją interwałów (min -max w sekundach); cykliczne pobieranie listy przedmiotów w tle z zapisem do `src/suggestions.txt`; etykieta ETA kolejnego cyklu; przycisk "Cykl teraz" wymuszający natychmiastową aktualizację. | Ukończono |
 | **Interwały Auto-odświeżania** | Użytkownik ustawia zakres czasu (domyślnie 600 -900 s); aplikacja losuje delay z tego przedziału po każdym cyklu; możliwość włączenia/wyłączenia i natychmiastowego wymuszenia cyklu. | Ukończono |
-| **Rate Limiting Fixes** | Zwiększono opóĹşnienia i backoff w `_http_get_with_backoff` (initial: 2.0s, mnożnik: 2.0x, jitter: 0.5 -1.5s) oraz opóĹşnienie między pobieraniem historii a listingów (3.0s zamiast 1.5s), aby uniknąć błędów HTTP 429 od Steam. | Ukończono |
+| **Rate Limiting Fixes** | Zwiększono opóźnienia i backoff w `_http_get_with_backoff` (initial: 2.0s, mnożnik: 2.0x, jitter: 0.5 -1.5s) oraz opóźnienie między pobieraniem historii a listingów (3.0s zamiast 1.5s), aby uniknąć błędów HTTP 429 od Steam. | Ukończono |
 | **Powiększone Logo** | Logo w sidebarze zwiększone z 64Ă-64 do 80Ă-80 px dla lepszej widoczności. | Ukończono |
 
 ### CS2 Skin Analyzer v0.4 (Tydzień 4):
@@ -302,14 +302,14 @@ CS2 Skin Analyzer/
 | **On-Demand Paginacja GUI** | Dynamiczne pobieranie stron (`get_market_listings_page`) zamiast ładowania całego zestawu. | Ukończono |
 | **Cache Stron** | Cache + prefetch kolejnej strony dla płynniejszej nawigacji. | Ukończono |
 | **Izolacja Cache per Przedmiot** | Reset cache przy zmianie itemu, brak mieszania ofert. | Ukończono |
-| **Overlay Ĺadowania** | Półprzezroczysty overlay nad tabelą ofert w czasie pobierania. | Ukończono |
+| **Overlay Ładowania** | Półprzezroczysty overlay nad tabelą ofert w czasie pobierania. | Ukończono |
 | **Najniższa Oferta Spójna** | Najniższa cena wyliczana z parsowanych ofert (nie tylko z API). | Ukończono |
 | **Usunięcie Highest Buy Order** | Pole najwyższego zlecenia kupna usunięte (mała wartość analityczna). | Ukończono |
 | **Backoff + Jitter** | Mechanizm ponawiania (exponential backoff) dla błędów 429/503 z losowym jitter. | Ukończono |
 | **Metryki** | Logowanie: liczba stron i retry w SearchView. | Ukończono |
 | **Format Dat Historycznych** | Parsowanie dat do `YYYY-MM-DD HH:00`. | Ukończono |
 | **Sortowanie Cen Ofert** | Rosnąco po cenie (None na końcu). | Ukończono |
-| **Spójność Licznika Ofert** | "Ĺącznie ofert" używa bieżącego `total_count`. | Ukończono |
+| **Spójność Licznika Ofert** | "Łącznie ofert" używa bieżącego `total_count`. | Ukończono |
 | **Prefetch Logi** | Logi informujące cache vs sieć + status prefetchu. | Ukończono |
 | **Interaktywny hover na wykresie** | Dymek z datą i ceną, dynamiczne pozycjonowanie (flip przy krawędziach), zielone podświetlenie punktu. | Ukończono |
 | **Automatyczne logowanie przez przeglądarkę** | Selenium otwiera Edge/Chrome; po zalogowaniu automatycznie pobiera cookie `steamLoginSecure` (limit ~7 min), wyciszone logi. | Ukończono |
