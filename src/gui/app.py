@@ -21,8 +21,9 @@ class MarketApp:
     def __init__(self, root):
         self.root = root
         self.root.title("CS2 Skin Analyzer")
-        self.root.geometry("850x650") 
-        self.root.minsize(width=800, height=600) 
+        # Domyślne wymiary zoptymalizowane pod 1600x900
+        self._default_size = (1600, 900)
+        self._apply_initial_geometry()
         # Zachowaj bazowy tytuł do aktualizacji taskbara o procenty
         self._base_title = self.root.title()
 
@@ -115,6 +116,27 @@ class MarketApp:
         except Exception:
             # Bezpieczny no-op na nieobsługiwanych platformach/sytuacjach
             pass
+
+    def _apply_initial_geometry(self):
+        """Ustawia startowy rozmiar i centruje okno dla układu 1600x900."""
+        try:
+            width, height = self._default_size
+        except Exception:
+            width, height = (1600, 900)
+        try:
+            # Pozwól na lekkie zmniejszenie, ale preferuj szerokie okno
+            self.root.minsize(width=1400, height=820)
+        except Exception:
+            pass
+        try:
+            self.root.update_idletasks()
+            screen_w = self.root.winfo_screenwidth()
+            screen_h = self.root.winfo_screenheight()
+            x = max(int((screen_w - width) / 2), 0)
+            y = max(int((screen_h - height) / 2), 0)
+            self.root.geometry(f"{width}x{height}+{x}+{y}")
+        except Exception:
+            self.root.geometry(f"{width}x{height}")
 
     # ------------------------------------------------------------------
     # PAMIĘTANIE SESJI
@@ -326,7 +348,7 @@ class MarketApp:
     def _create_sidebar(self):
         """Tworzy lewy panel boczny z menu nawigacyjnym."""
         # Główny frame sidebaru z ciemnym tłem
-        self.sidebar = ttk.Frame(self.container, style='Sidebar.TFrame', width=200)
+        self.sidebar = ttk.Frame(self.container, style='Sidebar.TFrame', width=240)
         self.sidebar.grid(row=0, column=0, sticky='ns')
         self.sidebar.grid_propagate(False)  # Zachowaj stałą szerokość
         

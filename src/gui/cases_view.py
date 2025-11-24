@@ -139,7 +139,13 @@ class CasesView:
 
     def _create_cases_grid(self):
         """Tworzy siatkę z kafelkami skrzyń (obrazy z cache)."""
-        columns = 4  # 4 skrzynie w rzędzie
+        columns = 5  # domyślnie 5 skrzyń na szerokim układzie 1600 px
+        try:
+            current_width = max(self.controller.root.winfo_width(), 0)
+            if current_width and current_width < 1400:
+                columns = 4
+        except Exception:
+            columns = 5
         
         for idx, case in enumerate(self.cases_data):
             row = idx // columns

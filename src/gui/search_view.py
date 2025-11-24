@@ -42,8 +42,8 @@ class SearchView:
         # Ciemny (czarny) nagłówek z wyśrodkowanym tytułem
         style.configure('HeaderDark.TFrame', background='#111111')
         style.configure('HeaderDark.TLabel', background='#111111', foreground='#ffffff', font=("Arial", 16, "bold"))
-        header_frame = ttk.Frame(self.frame, style='HeaderDark.TFrame')
-        header_frame.grid(row=0, column=0, sticky='new', pady=(0, 10))
+        header_frame = ttk.Frame(self.frame, style='HeaderDark.TFrame', padding="12 10 12 10")
+        header_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
         header_frame.grid_columnconfigure(0, weight=1)
         header_frame.grid_columnconfigure(1, weight=1)
         header_frame.grid_columnconfigure(2, weight=0)
@@ -73,33 +73,42 @@ class SearchView:
         self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}")
         self.welcome_label.grid(row=0, column=2, sticky='e')
         
-        ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
+        info_frame = ttk.Frame(self.frame, style='Dark.TFrame', padding="8 6 8 6")
+        info_frame.grid(row=1, column=0, sticky='ew')
+        info_frame.grid_columnconfigure(0, weight=1)
+        # Aktualizacja wersji aplikacji wyświetlanej w pasku informacyjnym
+        self.version_label = ttk.Label(info_frame, text="Wersja: 0.4.5", style='Dark.TLabel')
+        self.version_label.pack(side='left', padx=8)
+        self.suggestions_label = ttk.Label(info_frame, text="Sugestie: ładowanie...", style='Dark.TLabel')
+        self.suggestions_label.pack(side='left', padx=8)
+        ttk.Button(info_frame, text="Odśwież autouzupełnianie", command=self._refresh_suggestions, style='Action.TButton').pack(side='right', padx=8)
+        ttk.Label(info_frame, text="Skrót: Ctrl+Enter — Pobierz i zapisz", style='Dark.TLabel').pack(side='right', padx=8)
 
-        input_frame = ttk.Frame(self.frame)
-        input_frame.grid(row=2, column=0, sticky='ew', pady=(5, 10))
+        filters_section = ttk.LabelFrame(self.frame, text="Parametry wyszukiwania", padding="16 12 16 16")
+        filters_section.grid(row=2, column=0, sticky='nsew', pady=(8, 12))
         
-        input_frame.grid_columnconfigure(1, weight=1)
-        input_frame.grid_columnconfigure(3, weight=1)
+        filters_section.grid_columnconfigure(1, weight=1)
+        filters_section.grid_columnconfigure(3, weight=1)
         
         # StatTrak / Souvenir
         self.stattrack_var = tk.BooleanVar(value=False)
         self.souvenir_var = tk.BooleanVar(value=False)
-        self.stattrack_check = ttk.Checkbutton(input_frame, text="StatTrak™", variable=self.stattrack_var,
+        self.stattrack_check = ttk.Checkbutton(filters_section, text="StatTrak™", variable=self.stattrack_var,
                                                onvalue=True, offvalue=False, command=self._on_stattrak_toggle)
         self.stattrack_check.grid(row=0, column=0, padx=(0, 10), pady=5, sticky='w')
-        self.souvenir_check = ttk.Checkbutton(input_frame, text="Souvenir", variable=self.souvenir_var,
+        self.souvenir_check = ttk.Checkbutton(filters_section, text="Souvenir", variable=self.souvenir_var,
                                               onvalue=True, offvalue=False, command=self._on_souvenir_toggle)
         self.souvenir_check.grid(row=0, column=1, padx=(0, 10), pady=5, sticky='w')
         # Jakość (domyślnie); dla kategorii Pojemnik zmieniana na "Rodzaj"
-        self.label_quality = ttk.Label(input_frame, text="Jakość:")
+        self.label_quality = ttk.Label(filters_section, text="Jakość:")
         self.label_quality.grid(row=1, column=2, padx=(10, 5), pady=5, sticky='w')
         self.wear_options = ["(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)", "Brak"]
-        self.wear_combobox = ttk.Combobox(input_frame, values=self.wear_options, width=18, state='readonly')
+        self.wear_combobox = ttk.Combobox(filters_section, values=self.wear_options, width=18, state='readonly')
         self.wear_combobox.grid(row=1, column=3, sticky='ew', pady=5)
         self.wear_combobox.set("(Field-Tested)")
 
         # Kategoria broni (np. Karabiny, Pistolety, Noże)
-        self.label_category = ttk.Label(input_frame, text="Kategoria broni:")
+        self.label_category = ttk.Label(filters_section, text="Kategoria broni:")
         self.label_category.grid(row=1, column=0, padx=(0, 10), pady=5, sticky='w')
         categories = sorted(list(WEAPON_CATEGORIES.keys()))
         # Rozszerzenia kategorii i rename Skrzynki->Pojemnik
@@ -110,75 +119,67 @@ class SearchView:
             if ec not in categories:
                 categories.append(ec)
         categories = sorted(categories)
-        self.category_combo = ttk.Combobox(input_frame, values=categories, state='readonly')
+        self.category_combo = ttk.Combobox(filters_section, values=categories, state='readonly')
         self.category_combo.grid(row=1, column=1, sticky='ew', pady=5)
         if categories:
             self.category_combo.set(categories[0])
 
         # Typ broni (filtrowane przez wybraną kategorię)
-        self.label_weapon_type = ttk.Label(input_frame, text="Typ broni:")
+        self.label_weapon_type = ttk.Label(filters_section, text="Typ broni:")
         self.label_weapon_type.grid(row=2, column=0, padx=(0, 10), pady=5, sticky='w')
         weapon_list = sorted(list(SKIN_DATA.keys()))
         # default readonly; for 'Noże' category we'll make it editable and blank
-        self.weapon_combo = ttk.Combobox(input_frame, values=weapon_list, state='readonly')
+        self.weapon_combo = ttk.Combobox(filters_section, values=weapon_list, state='readonly')
         self.weapon_combo.grid(row=2, column=1, sticky='ew', pady=5)
 
         # Skin (wyrównany do Typ broni w tym samym wierszu)
-        self.label_skin = ttk.Label(input_frame, text="Skin:")
+        self.label_skin = ttk.Label(filters_section, text="Skin:")
         self.label_skin.grid(row=2, column=2, padx=(10, 5), pady=5, sticky='w')
-        self.skin_combo = ttk.Combobox(input_frame, state='disabled')
+        self.skin_combo = ttk.Combobox(filters_section, state='disabled')
         self.skin_combo.grid(row=2, column=3, sticky='ew', pady=5)
         self.skin_combo.bind("<<ComboboxSelected>>", self.on_skin_select)
 
         # Przycisk wyszukiwania po prawej stronie, zasięg na 3 wiersze
-        self.search_button = ttk.Button(input_frame, text="Pobierz i zapisz", command=self.start_search_thread, state='normal', style='Action.TButton')
+        self.search_button = ttk.Button(filters_section, text="Pobierz i zapisz", command=self.start_search_thread, state='normal', style='Action.TButton')
         self.search_button.grid(row=0, column=4, rowspan=3, padx=(10, 0), sticky='nsew')
         
         self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
         self.category_combo.bind("<<ComboboxSelected>>", self.on_category_select)
 
         # Dodatkowy pasek informacyjny (ciemny) pod nagłówkiem
-        info_frame = ttk.Frame(self.frame, style='Dark.TFrame')
-        info_frame.grid(row=1, column=0, sticky='ew', pady=(0, 6))
-        info_frame.grid_columnconfigure(0, weight=1)
-        # Aktualizacja wersji aplikacji wyświetlanej w pasku informacyjnym
-        self.version_label = ttk.Label(info_frame, text="Wersja: 0.4.5", style='Dark.TLabel')
-        self.version_label.pack(side='left', padx=8)
-        self.suggestions_label = ttk.Label(info_frame, text="Sugestie: ładowanie...", style='Dark.TLabel')
-        self.suggestions_label.pack(side='left', padx=8)
-        ttk.Button(info_frame, text="Odśwież autouzupełnianie", command=self._refresh_suggestions, style='Action.TButton').pack(side='right', padx=8)
-        # Skrót klawiszowy podpowiedź
-        ttk.Label(info_frame, text="Skrót: Ctrl+Enter — Pobierz i zapisz", style='Dark.TLabel').pack(side='right', padx=8)
+        # Sekcja dziennika operacji
+        log_section = ttk.LabelFrame(self.frame, text="Dziennik operacji", padding="0")
+        log_section.grid(row=3, column=0, sticky='nsew', pady=(0, 8))
+        log_section.grid_rowconfigure(0, weight=1)
+        log_section.grid_columnconfigure(0, weight=1)
 
-        # Ciemne tło konsoli statusu
+        self.status_text = scrolledtext.ScrolledText(log_section, wrap=tk.WORD, state='disabled', height=12)
+        self.status_text.grid(row=0, column=0, sticky='nsew')
         try:
             self.status_text.configure(bg='#111111', fg='#e8e8e8', insertbackground='#ffffff', highlightthickness=0, borderwidth=1)
         except Exception:
             pass
 
-        self.status_text = scrolledtext.ScrolledText(self.frame, wrap=tk.WORD, state='disabled', height=10)
-        self.status_text.grid(row=3, column=0, sticky='nsew', pady=(10, 0))
         # Kontrolki pobierania sugestii (aktualizacja + anulowanie)
-        suggestions_controls = ttk.Frame(self.frame)
-        suggestions_controls.grid(row=4, column=0, sticky='ew', pady=(6, 0))
-        # 3 kolumny: [0]=Aktualizuj, [1]=etykieta postępu (rozszerza się), [2]=Przerwij
-        suggestions_controls.grid_columnconfigure(1, weight=1)
-        # Przycisk aktualizacji listy przedmiotów (on-demand)
-        self.update_btn = ttk.Button(suggestions_controls, text="Zaktualizuj listę przedmiotów", command=self._update_suggestions, style='Action.TButton')
+        suggestions_section = ttk.LabelFrame(self.frame, text="Zarządzanie sugestiami", padding="12 8 12 8")
+        suggestions_section.grid(row=4, column=0, sticky='ew')
+        suggestions_section.grid_columnconfigure(1, weight=1)
+
+        self.update_btn = ttk.Button(suggestions_section, text="Zaktualizuj listę przedmiotów", command=self._update_suggestions, style='Action.TButton')
         self.update_btn.grid(row=0, column=0, sticky='w')
-        # Przycisk backfill – szybki przebieg po offsetach, żeby domknąć brakujące pozycje
-        self.backfill_btn = ttk.Button(suggestions_controls, text="Backfill braków", command=self._backfill_suggestions, style='Action.TButton')
-        # Umieść poniżej głównego przycisku, aby nie kolidować z etykietą postępu i Anuluj
+
+        self.backfill_btn = ttk.Button(suggestions_section, text="Backfill braków", command=self._backfill_suggestions, style='Action.TButton')
         self.backfill_btn.grid(row=1, column=0, sticky='w', pady=(4,0))
-        # Etykieta postępu między przyciskami
+
         self.inline_progress_var = tk.StringVar(value="")
-        self.inline_progress_label = ttk.Label(suggestions_controls, textvariable=self.inline_progress_var, anchor='center')
+        self.inline_progress_label = ttk.Label(suggestions_section, textvariable=self.inline_progress_var, anchor='center')
         self.inline_progress_label.grid(row=0, column=1, sticky='ew', padx=8)
-        # Przycisk anulowania pobierania (na starcie wyłączony)
-        self.cancel_btn = ttk.Button(suggestions_controls, text="Przerwij", command=self._cancel_update, state='disabled', style='Action.TButton')
+
+        self.cancel_btn = ttk.Button(suggestions_section, text="Przerwij", command=self._cancel_update, state='disabled', style='Action.TButton')
         self.cancel_btn.grid(row=0, column=2, padx=(12,0))
+
         # --- AUTO REFRESH CONFIG ---
-        auto_frame = ttk.Frame(self.frame)
+        auto_frame = ttk.LabelFrame(self.frame, text="Auto-odświeżanie", padding="12 8 12 8")
         auto_frame.grid(row=6, column=0, sticky='ew', pady=(8,0))
         auto_frame.grid_columnconfigure(7, weight=1)
         self.auto_refresh_enabled = tk.BooleanVar(value=False)
@@ -195,7 +196,6 @@ class SearchView:
         self.auto_next_var = tk.StringVar(value="")
         self.auto_next_label = ttk.Label(auto_frame, textvariable=self.auto_next_var, foreground='gray')
         self.auto_next_label.grid(row=0, column=5, padx=(4,0))
-        # przycisk wymuszenia natychmiastowego cyklu
         self.force_cycle_btn = ttk.Button(auto_frame, text="Cykl teraz", command=self._force_auto_cycle, state='disabled', style='Action.TButton')
 
         # Skrót: Ctrl+Enter uruchamia pobieranie

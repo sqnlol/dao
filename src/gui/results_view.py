@@ -24,7 +24,7 @@ EXCHANGE_RATES = {
 class ResultsView:
     def __init__(self, master, app_controller):
         self.controller = app_controller
-        self.frame = ttk.Frame(master, padding="10")
+        self.frame = ttk.Frame(master, padding="16 12 16 16")
         self.frame.grid(row=0, column=0, sticky="nsew") 
         self.frame.grid_rowconfigure(2, weight=1) 
         self.frame.grid_columnconfigure(0, weight=1) 
@@ -49,8 +49,8 @@ class ResultsView:
         self._cache_item_key = None  # identyfikator aktualnego przedmiotu dla cache
         self._total_count = 0
         # stały rozmiar okna z listą, aby uniknąć skoków i umożliwić overlay
-        self._listings_width = 780
-        self._listings_height = 320
+        self._listings_width = 1120
+        self._listings_height = 420
         self._overlay_canvas = None
         self._overlay_stipple = "gray50"  # intensywność bluru: gray12 (lekki) / gray50 (mocny)
 
@@ -78,7 +78,7 @@ class ResultsView:
     def _create_widgets(self):
         # 1. Nagłówek i przycisk powrotu
         header_frame = ttk.Frame(self.frame)
-        header_frame.grid(row=0, column=0, sticky='new', pady=(0, 10))
+        header_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
         header_frame.grid_columnconfigure(1, weight=1) 
 
         self.back_button = ttk.Button(header_frame, text="< Wyszukiwanie", command=lambda: self.controller.switch_view("search"))
@@ -101,10 +101,10 @@ class ResultsView:
         self.main_content_frame.grid_columnconfigure(0, weight=1)
 
         self.scrollable_content = tk.Canvas(self.main_content_frame, bd=0, highlightthickness=0)
-        self.scrollable_content.pack(side="left", fill="both", expand=True)
+        self.scrollable_content.grid(row=0, column=0, sticky='nsew')
 
         self.scrollbar = ttk.Scrollbar(self.main_content_frame, orient="vertical", command=self.scrollable_content.yview)
-        self.scrollbar.pack(side="right", fill="y")
+        self.scrollbar.grid(row=0, column=1, sticky='ns')
 
         self.scrollable_content.configure(yscrollcommand=self.scrollbar.set)
         
@@ -113,32 +113,34 @@ class ResultsView:
         
         self.inner_frame.bind("<Configure>", lambda e: self.scrollable_content.configure(scrollregion=self.scrollable_content.bbox("all")))
         self.inner_frame.grid_columnconfigure(0, weight=1)
+        self.inner_frame.grid_rowconfigure(2, weight=1)
+        self.inner_frame.grid_rowconfigure(4, weight=1)
         
         # --- SEKCJA OBRAZKA ---
         self.image_section = ttk.LabelFrame(self.inner_frame, text="🖼 Obrazek")
-        self.image_section.grid(row=0, column=0, sticky="ew", pady=(0, 15))
+        self.image_section.grid(row=0, column=0, sticky="nsew", pady=(0, 15))
         self.image_section.grid_columnconfigure(0, weight=1)
         self._create_image_widgets(self.image_section)
 
         # --- SEKCJA WYKRESU (PROSTA WERSJA) ---
         self.chart_section = ttk.LabelFrame(self.inner_frame, text="📈 Wykres Cenowy")
-        self.chart_section.grid(row=1, column=0, sticky="ew", pady=(0, 15))
+        self.chart_section.grid(row=1, column=0, sticky="nsew", pady=(0, 15))
         self.chart_section.grid_columnconfigure(0, weight=1)
         self._create_chart_widgets(self.chart_section)
         
     # Sekcja Ofert
         self.listings_section = ttk.LabelFrame(self.inner_frame, text="📊 Aktualne Oferty Rynkowe")
-        self.listings_section.grid(row=2, column=0, sticky="ew", pady=(0, 15))
+        self.listings_section.grid(row=2, column=0, sticky="nsew", pady=(0, 15))
         self.listings_section.grid_columnconfigure(0, weight=1)
         
         # Sekcja Podsumowania
         self.summary_section = ttk.LabelFrame(self.inner_frame, text="📜 Podsumowanie Historyczne")
-        self.summary_section.grid(row=3, column=0, sticky="ew", pady=(0, 15))
+        self.summary_section.grid(row=3, column=0, sticky="nsew", pady=(0, 15))
         self.summary_section.grid_columnconfigure(0, weight=1)
 
         # Sekcja Tabeli Historii
         self.history_table_section = ttk.LabelFrame(self.inner_frame, text="⏳ Szczegóły Transakcji Historycznych")
-        self.history_table_section.grid(row=4, column=0, sticky="ew", pady=(0, 15))
+        self.history_table_section.grid(row=4, column=0, sticky="nsew", pady=(0, 15))
         self.history_table_section.grid_columnconfigure(0, weight=1)
         
         self.history_expanded = tk.BooleanVar(value=False)
@@ -189,7 +191,7 @@ class ResultsView:
         ttk.Button(button_frame, text="Ogółem", command=lambda: self._plot_chart('all')).pack(side='left', padx=2)
 
         # Czarne tło
-        self.fig = Figure(figsize=(8, 3), dpi=100)
+        self.fig = Figure(figsize=(11, 4), dpi=100)
         self.fig.patch.set_facecolor('#2E2E2E')
 
         self.ax = self.fig.add_subplot(111)
