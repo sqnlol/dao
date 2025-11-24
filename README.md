@@ -63,14 +63,14 @@ CS2 Skin Analyzer/
 | Plik | Rola | Kluczowe Elementy |
 | :--- | :--- | :--- |
 | `login_view.py` | Logowanie (ręczne i automatyczne) i zapis cookie `steamLoginSecure`. | Pole cookie; Selenium (Edge/Chrome) do logowania i automatycznego pobrania cookie; pobieranie nazwy konta; statusy. |
-| `search_view.py` | Wybór przedmiotu i uruchomienie pobierania. | Filtry (StatTrak™, wear), taksonomia (w tym noże i "Vanilla"); nagłówek z powitaniem i trybem cookie; autouzupełnianie onâ€‘demand z postępem/anulowaniem; logi. |
+| `search_view.py` | Wybór przedmiotu i uruchomienie pobierania. | Filtry (StatTrak™, wear), taksonomia (w tym noże i "Vanilla"); nagłówek z powitaniem i trybem cookie; autouzupełnianie on-demand z postępem/anulowaniem; logi. |
 | `results_view.py` | Prezentacja wyników: wykres, oferty, historia, obrazek. | Interaktywny hover (dymek + zielona kropka); zakresy czasu; paginacja z cache/prefetch; overlay podczas ładowania; sortowalna historia; sekcja obrazka z LRU cache. |
 | `app.py` | Kontroler, stan sesji, ikony i pętla kolejki. | Ustawienie ikon PNG/ICO; `switch_view`; `process_queue` (obsługa log/progress/error/success); integracja z pobieraniem sugestii. |
 
 #### Szczegółowe funkcje GUI
 
 - `login_view.py`
-    - Ręczne podanie cookie `steamLoginSecure` lub start automatycznego logowania przez przeglądarkę (Selenium: Edge →’ Chrome fallback, wyciszone logi).
+    - Ręczne podanie cookie `steamLoginSecure` lub start automatycznego logowania przez przeglądarkę (Selenium: Edge → Chrome fallback, wyciszone logi).
     - Po zalogowaniu automatyczne wykrycie cookie i zapis do kontrolera; pobranie nazwy konta (community/store) i przejście do wyszukiwania.
     - Wyśrodkowany nagłówek z dużym logo i tytułem; komunikaty statusu (kolory: gray/orange/green/red).
 
@@ -78,11 +78,11 @@ CS2 Skin Analyzer/
     - Nagłówek: "Witaj, <nazwa>", przycisk Wyloguj, etykieta "Brak Cookie  - funkcjonalność ograniczona" (dynamicznie ukrywana/pokazywana).
     - Taksonomia: kategorie broni (w tym "Snajperskie"), obsługa noży ze znakiem "|" i wariantem "Vanilla" (bez separatora i wear), MP7.
     - Filtry: StatTrak™, wear (włączane/wyłączane zależnie od typu/skin).
-    - Autouzupełnianie onâ€‘demand: przycisk aktualizacji, pasek postępu z ETA, etykieta inline, możliwość anulowania; zapis do `src/suggestions.txt`.
+    - Autouzupełnianie on-demand: przycisk aktualizacji, pasek postępu z ETA, etykieta inline, możliwość anulowania; zapis do `src/suggestions.txt`.
     - Logi operacyjne w dolnym panelu; wątki do pobierania danych; przekazanie wyników przez kolejkę do kontrolera.
 
 - `results_view.py`
-    - Wykres: zakresy "Tydzień/Miesiąc/Ogółem"; interaktywny hover z dymkiem (data+price), autoâ€‘flip przy krawędziach i zielona kropka podświetlająca punkt.
+    - Wykres: zakresy "Tydzień/Miesiąc/Ogółem"; interaktywny hover z dymkiem (data+price), auto-flip przy krawędziach i zielona kropka podświetlająca punkt.
     - Oferty: paginacja 10/strona, cache stron, prefetch kolejnej, stały kontener z półprzezroczystym overlayem podczas ładowania.
     - Podsumowanie: najniższa i najwyższa historyczna cena (z datą).
     - Historia: rozwijana tabela, sortowanie po Cenie i Dacie (klik w nagłówek) z ikonami kierunku i domyślnie najnowszymi na górze.
@@ -99,7 +99,7 @@ CS2 Skin Analyzer/
 | :--- | :--- | :--- |
 | `steam_market.get_price_history` | Pobieranie historii cen. | Wymaga `steamLoginSecure`; zwraca listę rekordów: `sale_timestamp`, `sale_date_str`, `price`, `sales_count`. |
 | `steam_market.get_market_listings` | Pobieranie pakietu ofert + metryki. | Parsowanie JSON (fallback HTML); `lowest_price_float`, `total_count`, `listings` z polską lokalizacją (country=PL, language=polish, currency=6). |
-| `steam_market.get_market_listings_page` | Stronicowanie onâ€‘demand. | Paginacja start/count; spójna z GUI cache/prefetch; aktualizuje `total_count` i ceny min. |
+| `steam_market.get_market_listings_page` | Stronicowanie on-demand. | Paginacja start/count; spójna z GUI cache/prefetch; aktualizuje `total_count` i ceny min. |
 | `steam_market.parse_market_name` | Standaryzacja nazwy rynku. | Typ, nazwa bazowa, wear; obsługa StatTrak™ i formatu noży (gwiazdka, Vanilla bez wear). |
 | `steam_market.fetch_all_csgo_items` | Pełna lista pozycji dla autouzupełniania. | Zapis do `src/suggestions.txt`; tryb wznawiania, pliki postępu, callback z komunikatami `PROGRESS`, obsługa anulowania. |
 | `steam_market.get_item_image_url` | URL obrazka dla pozycji. | Używany do asynchronicznego pobrania miniatury w `ResultsView`. |
@@ -118,7 +118,7 @@ CS2 Skin Analyzer/
 | `database.get_sales_for_item` | Odczyt danych historycznych. | Sortowanie chronologiczne. |
 
 ### Kontrakty komunikatów i kolejki
-- Wątki robocze przekazują do kontrolera słowniki o kluczu `status` â {`log`, `error`, `success`, `progress`}.
+- Wątki robocze przekazują do kontrolera słowniki o kluczu `status` ∈ {`log`, `error`, `success`, `progress`}.
 - `success` musi zawierać: `item_name`, `history_data`, `listings_data` (opcjonalnie `image_url`).
 - `progress`: pole `progress` ze strukturą `{ current, total, retries, eta }` (sekundy); GUI aktualizuje pasek i etykietę postępu.
 - Kontroler (`app.py`) dystrybuuje komunikaty do widoków, w tym wstrzykuje `image_url` do `listings_data` przed przełączeniem na Results.
@@ -134,11 +134,11 @@ CS2 Skin Analyzer/
 * Overlay przy wczytywaniu ofert (Canvas + stipple).
 
 ### Kluczowe pliki i role (szczegóły)
-* `main.py` â€" inicjalizacja aplikacji: sprawdzenie zależności (`requests`), `database.init_db()`, start `tkinter` i kontrolera `MarketApp`.
-* `src/gui/app.py` â€" kontroler i stan sesji (`login_cookie`), przełączanie widoków, pętla `process_queue` na komunikaty z wątków.
-* `src/gui/login_view.py` â€" input i zapis `steamLoginSecure`.
-* `src/gui/search_view.py` â€" UI wyszukiwania + worker `_search_worker` (pobrania, zapis do DB, publikacja wyników do kolejki).
-* `src/gui/results_view.py` â€" prezentacja wyników (tabela ofert z paginacją, wykres, historia), cache i prefetch stron.
+* `main.py` - inicjalizacja aplikacji: sprawdzenie zależności (`requests`), `database.init_db()`, start `tkinter` i kontrolera `MarketApp`.
+* `src/gui/app.py` - kontroler i stan sesji (`login_cookie`), przełączanie widoków, pętla `process_queue` na komunikaty z wątków.
+* `src/gui/login_view.py` - input i zapis `steamLoginSecure`.
+* `src/gui/search_view.py` - UI wyszukiwania + worker `_search_worker` (pobrania, zapis do DB, publikacja wyników do kolejki).
+* `src/gui/results_view.py` - prezentacja wyników (tabela ofert z paginacją, wykres, historia), cache i prefetch stron.
 
 ### Wymagane biblioteki
 
@@ -187,7 +187,7 @@ CS2 Skin Analyzer/
 #### Cache obrazków skrzyń i akcje w widoku szczegółów
 
 - `CasesView` wczytuje listę skrzyń z modułu `case_images_cache`, sprawdza brakujące zasoby i w tle pobiera ich miniatury prosto ze Steam Market (z adaptacyjnym opóźnieniem i logami postępu). Po zakończeniu siatka kafelków automatycznie się odświeża, dzięki czemu widok zawsze pokazuje realne obrazki, a nie placeholdery.
-- `CaseDetailView` korzysta już wyłącznie z lokalnego cacheâ€™u i daje szybkie akcje: "Otwórz plik", "Pokaż w folderze" oraz "Szukaj na Steam". Pozwala to szybko przejść od galerii do plików lub strony społeczności bez ręcznego szukania ścieżek.
+- `CaseDetailView` korzysta już wyłącznie z lokalnego cache'u i daje szybkie akcje: "Otwórz plik", "Pokaż w folderze" oraz "Szukaj na Steam". Pozwala to szybko przejść od galerii do plików lub strony społeczności bez ręcznego szukania ścieżek.
 
 #### Sugestie przeniesione do katalogu użytkownika i szybkie odświeżanie
 
@@ -231,7 +231,7 @@ CS2 Skin Analyzer/
 | :--- | :--- | :--- | :--- |
 | HTTP 429 przy sekwencyjnym pobraniu historii i ofert | Natychmiastowe pobranie ofert po historii dawało 429. | Rozwiązano | Wydłużenie przerwy (3.0s) + silniejszy backoff (2.0x). |
 | Błąd "main thread is not in main loop" przy obrazkach | Tworzenie `PhotoImage` w wątku kończyło się wyjątkiem. | Rozwiązano | Tworzenie obrazów przeniesione do głównego wątku przez `after()`. |
-| Brak autoâ€‘odświeżenia galerii po pobraniu obrazków | Miniatury wymagały ręcznego przejścia widoku. | Rozwiązano | Dodano końcowy callback przebudowujący siatkę. |
+| Brak auto-odświeżenia galerii po pobraniu obrazków | Miniatury wymagały ręcznego przejścia widoku. | Rozwiązano | Dodano końcowy callback przebudowujący siatkę. |
 | Niespójne importy (relatywne vs absolutne) | Trudniejsze uruchamianie w buildzie `.exe`. | Rozwiązano | Standaryzacja do absolutnych `from src...`. |
 | Spadek płynności wykresu przy pełnym zakresie | Przy "Ogółem" render trwał odczuwalnie dłużej. | W toku | Plan downsamplingu i leniwej aktualizacji hover meta. |
 | Sporadyczne `NoneType` przy parsowaniu ofert | Brakujące pola w odpowiedzi powodowały wyjątki. | Rozwiązano | Najpierw parse JSON, fallback HTML; dodatkowe `None`-guardy. |
@@ -271,7 +271,7 @@ CS2 Skin Analyzer/
 | **Auto-odświeżanie Sugestii** | Checkbox "Auto-odświeżanie sugestii" z regulacją interwałów (min -max w sekundach); cykliczne pobieranie listy przedmiotów w tle z zapisem do `src/suggestions.txt`; etykieta ETA kolejnego cyklu; przycisk "Cykl teraz" wymuszający natychmiastową aktualizację. | Ukończono |
 | **Interwały Auto-odświeżania** | Użytkownik ustawia zakres czasu (domyślnie 600 -900 s); aplikacja losuje delay z tego przedziału po każdym cyklu; możliwość włączenia/wyłączenia i natychmiastowego wymuszenia cyklu. | Ukończono |
 | **Rate Limiting Fixes** | Zwiększono opóźnienia i backoff w `_http_get_with_backoff` (initial: 2.0s, mnożnik: 2.0x, jitter: 0.5 -1.5s) oraz opóźnienie między pobieraniem historii a listingów (3.0s zamiast 1.5s), aby uniknąć błędów HTTP 429 od Steam. | Ukończono |
-| **Powiększone Logo** | Logo w sidebarze zwiększone z 64Ă-64 do 80Ă-80 px dla lepszej widoczności. | Ukończono |
+| **Powiększone Logo** | Logo w sidebarze zwiększone z 64x64 do 80x80 px dla lepszej widoczności. | Ukończono |
 
 ### CS2 Skin Analyzer v0.4 (Tydzień 4):
 
@@ -315,11 +315,11 @@ CS2 Skin Analyzer/
 | **Automatyczne logowanie przez przeglądarkę** | Selenium otwiera Edge/Chrome; po zalogowaniu automatycznie pobiera cookie `steamLoginSecure` (limit ~7 min), wyciszone logi. | Ukończono |
 | **Pobranie nazwy konta** | Po zalogowaniu pobierana jest nazwa konta ze Steam (`steamcommunity`/`store`) i wyświetlana jako "Witaj, <nazwa>". | Ukończono |
 | **Branding i ikony** | Logo aplikacji w oknie; generowanie wielorozmiarowego `.ico`; ustawienie `iconphoto`/`iconbitmap`; duży nagłówek i wyśrodkowanie w LoginView. | Ukończono |
-| **UI: powitanie i tryb cookie** | Nagłówek w SearchView: "Witaj, â€¦", przycisk Wyloguj, dynamiczna etykieta "Brak Cookie  - funkcjonalność ograniczona". | Ukończono |
+| **UI: powitanie i tryb cookie** | Nagłówek w SearchView: "Witaj, ...", przycisk Wyloguj, dynamiczna etykieta "Brak Cookie  - funkcjonalność ograniczona". | Ukończono |
 | **Taxonomia i nazewnictwo** | Refaktor kategorii (oddzielne "Snajperskie"), dodano MP7, pełen zestaw noży z gwiazdką "|", obsługa wariantu "Vanilla" (bez wear i separatora). | Ukończono |
 | **Obrazek przedmiotu** | Sekcja obrazu w ResultsView: asynchroniczne pobieranie i skalowanie, LRU cache obrazków, placeholder gdy brak. | Ukończono |
 | **Sortowanie tabeli historii** | Klikalne nagłówki Cena/Data z przełączaniem kierunku i strzałkami; domyślnie najnowsze na górze. | Ukończono |
-| **Autouzupełnianie onâ€‘demand** | Przycisk "Zaktualizuj listę przedmiotów", pasek postępu + ETA i anulowanie; zapis do `src/suggestions.txt`. | Ukończono |
+| **Autouzupełnianie on-demand** | Przycisk "Zaktualizuj listę przedmiotów", pasek postępu + ETA i anulowanie; zapis do `src/suggestions.txt`. | Ukończono |
 | **Komunikat o braku historii** | Na wykresie pojawia się informacja "Brak historii cen (wymagane cookie)" gdy brak danych/cookie. | Ukończono |
 
 ### CS2 Skin Analyzer v0.3 (Tydzień 3):
