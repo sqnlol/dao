@@ -178,6 +178,25 @@ CS2 Skin Analyzer/
 
 ## Historia Zmian (Changelog)
 
+### CS2 Skin Analyzer v0.6 (Tydzień 6):
+
+#### Cache obrazków skrzyń i akcje w widoku szczegółów
+
+- `CasesView` wczytuje listę skrzyń z modułu `case_images_cache`, sprawdza brakujące zasoby i w tle pobiera ich miniatury prosto ze Steam Market (z adaptacyjnym opóźnieniem i logami postępu). Po zakończeniu siatka kafelków automatycznie się odświeża, dzięki czemu widok zawsze pokazuje realne obrazki, a nie placeholdery.
+- `CaseDetailView` korzysta już wyłącznie z lokalnego cache’u i daje szybkie akcje: „Otwórz plik”, „Pokaż w folderze” oraz „Szukaj na Steam”. Pozwala to szybko przejść od galerii do plików lub strony społeczności bez ręcznego szukania ścieżek.
+
+#### Sugestie przeniesione do katalogu użytkownika i szybkie odświeżanie
+
+- Nowy moduł `resource_paths` kieruje `suggestions.txt` do `%LOCALAPPDATA%\CS2SkinAnalyzer` (z kopiowaniem zasobów przy pierwszym starcie) i prawidłowo rozwiązuje ścieżki w buildach PyInstaller (`_MEIPASS`). Dzięki temu wersja `.exe` faktycznie zapisuje/odczytuje autouzupełnianie, zamiast tkwić na wbudowanych placeholderach.
+- Przycisk „Odśwież autouzupełnianie” w `SearchView` korzysta z lekkiego wątku `_fetch_suggestions_async`, który ładuje lokalny plik i po zakończeniu wywołuje `set_suggestions`. Widok od razu przeładowuje taksonomię (`skin_list` jest importowany ponownie), więc wszystkie comboboxy (Agenci, rękawice, graffiti itd.) natychmiast widzą nowe kategorie bez pełnego pobierania z sieci.
+
+| Data | Opis Zmiany / Działania | Status |
+| :--- | :--- | :--- |
+| **Cache skrzyń** | Dodano `case_images_cache.py` + integrację w `CasesView`: sprawdzanie brakujących obrazów, asynchroniczne pobieranie z logami postępu i automatyczne odświeżenie kafelków po zakończeniu. | Ukończono |
+| **Akcje w szczegółach skrzyni** | `CaseDetailView` pokazuje ścieżkę cache, pozwala otworzyć plik/ folder oraz przenosi do wyszukiwarki Steam jednym kliknięciem. | Ukończono |
+| **Sugestie w LocalAppData** | Wszystkie moduły (`app.py`, `suggestions_loader.py`, `skin_list_builder.py`) korzystają z `resource_paths.get_writable_suggestions_path()`, więc dane autouzupełniania zapisują się w katalogu użytkownika zarówno w dev, jak i w buildzie `.exe`. | Ukończono |
+| **Szybkie odświeżanie autouzupełniania** | Przycisk w SearchView wywołuje `_fetch_suggestions_async`, który ładuje lokalne `suggestions.txt` i po wysłaniu komunikatu do GUI przeładowuje taksonomię (gloves, agents, graffiti, kontenery) bez dodatkowego ruchu sieciowego. | Ukończono |
+
 ### CS2 Skin Analyzer v0.5 (Tydzień 5):
 
 #### Ekran Główny z Interaktywnym GUI
