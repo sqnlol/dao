@@ -1,74 +1,287 @@
+import os
 import tkinter as tk
 from tkinter import ttk
 import threading
 import time
 import sys
 
+
+class RoundedButton(tk.Frame):
+    """Simple canvas-based button with rounded corners and hover states."""
+
+    def __init__(
+        self,
+        master,
+        text,
+        command,
+        bg_color,
+        hover_color=None,
+        active_color=None,
+        text_color='#DBDBDB',
+        height=52,
+        radius=12,
+        font=("Arial", 16, "bold"),
+        icon_image=None,
+        icon_size=(24, 24),
+        icon_gap=8,
+    ):
+        super().__init__(master, bg=master.cget('bg'))
+        self.command = command
+        self.text = text
+        self.bg_color = bg_color
+        self.hover_color = hover_color or self._shade_color(bg_color, 1.08)
+        self.active_color = active_color or self._shade_color(bg_color, 0.92)
+        self.text_color = text_color
+        self.height = height
+        self.radius = radius
+        self.font = font
+        self.icon_image = icon_image
+        self.icon_size = icon_size
+        self.icon_gap = icon_gap
+        self._current_color = self.bg_color
+        self._hover = False
+
+        self.canvas = tk.Canvas(self, bg=self['bg'], highlightthickness=0, bd=0, height=self.height)
+        self.canvas.pack(fill='x', expand=True)
+        self.canvas.configure(cursor="hand2")
+        self.canvas.bind("<Configure>", lambda e: self._draw())
+        self.canvas.bind("<Enter>", self._on_enter)
+        self.canvas.bind("<Leave>", self._on_leave)
+        self.canvas.bind("<ButtonPress-1>", self._on_press)
+        self.canvas.bind("<ButtonRelease-1>", self._on_release)
+
+    def _shade_color(self, hex_color, factor):
+        hex_color = hex_color.lstrip('#')
+        r = int(hex_color[0:2], 16)
+        g = int(hex_color[2:4], 16)
+        b = int(hex_color[4:6], 16)
+        r = max(0, min(255, int(r * factor)))
+        g = max(0, min(255, int(g * factor)))
+        b = max(0, min(255, int(b * factor)))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def _draw(self):
+        self.canvas.delete('all')
+        width = max(self.canvas.winfo_width(), 40)
+        height = self.height
+        radius = min(self.radius, height // 2, width // 2)
+        fill = self._current_color
+        self.canvas.create_rectangle(radius, 0, width - radius, height, fill=fill, outline=fill)
+        self.canvas.create_rectangle(0, radius, width, height - radius, fill=fill, outline=fill)
+        self.canvas.create_oval(0, 0, radius * 2, radius * 2, fill=fill, outline=fill)
+        self.canvas.create_oval(width - radius * 2, 0, width, radius * 2, fill=fill, outline=fill)
+        self.canvas.create_oval(0, height - radius * 2, radius * 2, height, fill=fill, outline=fill)
+        self.canvas.create_oval(width - radius * 2, height - radius * 2, width, height, fill=fill, outline=fill)
+        text_x = width / 2
+        if self.icon_image:
+            icon_w, _ = self.icon_size
+            try:
+                icon_w = int(self.icon_image.width())
+            except Exception:
+                pass
+            text_id = self.canvas.create_text(0, 0, text=self.text, font=self.font, anchor='w')
+            bbox = self.canvas.bbox(text_id) or (0, 0, 0, 0)
+            self.canvas.delete(text_id)
+            text_width = bbox[2] - bbox[0]
+            total_width = icon_w + self.icon_gap + text_width
+            start_x = (width - total_width) / 2
+            self.canvas.create_image(start_x + icon_w / 2, height / 2, image=self.icon_image)
+            text_x = start_x + icon_w + self.icon_gap
+            self.canvas.create_text(text_x, height / 2, text=self.text, fill=self.text_color, font=self.font, anchor='w')
+        else:
+            self.canvas.create_text(text_x, height / 2, text=self.text, fill=self.text_color, font=self.font, anchor='center')
+
+    def _on_enter(self, _event):
+        self._hover = True
+        self._current_color = self.hover_color
+        self._draw()
+
+    def _on_leave(self, _event):
+        self._hover = False
+        self._current_color = self.bg_color
+        self._draw()
+
+    def _on_press(self, _event):
+        self._current_color = self.active_color
+        self._draw()
+
+    def _on_release(self, event):
+        self._current_color = self.hover_color if self._hover else self.bg_color
+        self._draw()
+        if self.command and self._pointer_inside(event):
+            self.command()
+
+    def _pointer_inside(self, event):
+        width = self.canvas.winfo_width()
+        height = self.height
+        return 0 <= event.x <= width and 0 <= event.y <= height
+
+
 class LoginView:
     def __init__(self, master, app_controller):
         self.controller = app_controller
-        
-        self.frame = ttk.Frame(master, padding="20")
-        self.frame.grid(row=0, column=0, sticky="nsew") 
-        
-        self.frame.grid_rowconfigure(0, weight=1) 
-        self.frame.grid_rowconfigure(2, weight=1) 
-        self.frame.grid_rowconfigure(1, weight=0) 
-        self.frame.grid_columnconfigure(0, weight=1) 
+        self._bg_color = '#1F1F20'
+        self._card_bg = '#0F111A'
+        self._accent = '#78A3D7'
+        self._button_dark = '#2B2B2B'
+        self._button_green = '#71A031'
+        self._assets_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img')
 
+        self._steam_icon_image = None
+
+        self.frame = tk.Frame(master, bg=self._bg_color)
+        self.frame.grid(row=0, column=0, sticky="nsew")
+        self.frame.grid_rowconfigure(0, weight=1)
+        self.frame.grid_columnconfigure(0, weight=1)
+
+        self._build_styles()
         self._create_widgets()
 
-    def _create_widgets(self):
-        
-        content_frame = ttk.Frame(self.frame)
-        content_frame.grid(row=1, column=0, sticky="nsew") 
-
-        # Nagłówek z dużym logo i tytułem obok (wyśrodkowany)
-        header = ttk.Frame(content_frame)
-        header.pack(pady=(30, 20))  # bez fill='x' aby łatwo wycentrować jako całość
+    def _load_icon(self, filename, size=None):
         try:
             from PIL import Image, ImageTk
-            import os
-            logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img', 'CS2SkinAnalyzer.png')
+        except ImportError:
+            print("Brak Pillow - pomijam ikonę", file=sys.stderr)
+            return None
+
+        path = os.path.join(self._assets_dir, filename)
+        if not os.path.exists(path):
+            return None
+
+        try:
+            with Image.open(path) as img:
+                img = img.convert("RGBA")
+                if size:
+                    resample = getattr(Image, 'LANCZOS', getattr(Image, 'BICUBIC', Image.NEAREST))
+                    img = img.resize(size, resample)
+                return ImageTk.PhotoImage(img)
+        except Exception as exc:
+            print(f"Nie udało się załadować {filename}: {exc}", file=sys.stderr)
+            return None
+
+    def _create_widgets(self):
+        container = tk.Frame(self.frame, bg=self._bg_color)
+        container.grid(row=0, column=0, sticky='nsew')
+        container.grid_rowconfigure(1, weight=1)
+        container.grid_columnconfigure(0, weight=1)
+
+        # Use the newly provided Steam logo asset, scaled down to fit the button nicely.
+        self._steam_icon_image = self._load_icon('steamlogo.png', (26, 18))
+
+        logo_frame = tk.Frame(container, bg=self._bg_color)
+        logo_frame.grid(row=0, column=0, sticky='n', pady=(60, 30))
+        try:
+            from PIL import Image, ImageTk
+            logo_path = os.path.join(self._assets_dir, 'CS2SkinAnalyzer.png')
             if os.path.exists(logo_path):
                 img = Image.open(logo_path)
-                # powiększone logo w loginie (np. wysokość ~96)
                 ratio = img.width / img.height if img.height else 1
-                target_h = 96
+                target_h = 120
                 target_w = int(target_h * ratio)
                 img_big = img.resize((target_w, target_h))
                 self._login_logo_img = ImageTk.PhotoImage(img_big)
-                ttk.Label(header, image=self._login_logo_img).pack(side='left')
+                tk.Label(logo_frame, image=self._login_logo_img, bg=self._bg_color).pack()
         except Exception as e:
             print(f"Logo niezaładowane: {e}", file=sys.stderr)
-        title_lbl = ttk.Label(header, text="CS2 Skin Analyzer", font=("Arial", 28, "bold"))
-        title_lbl.pack(side='left', padx=(12, 0))
 
-        # Usunięto informacyjny napis o opcjonalnym cookie
-        ttk.Label(content_frame, text="Wartość ciasteczka 'steamLoginSecure' (może być puste):").pack()
+        card_wrapper = tk.Frame(container, bg=self._bg_color)
+        card_wrapper.grid(row=1, column=0, sticky='n')
 
-        self.cookie_entry = ttk.Entry(content_frame, width=100)
-        self.cookie_entry.pack(pady=5, fill='x', padx=50) 
+        card_border = tk.Frame(
+            card_wrapper,
+            bg=self._card_bg,
+            highlightbackground=self._accent,
+            highlightcolor=self._accent,
+            highlightthickness=2,
+            bd=0,
+            relief='flat'
+        )
+        card_border.pack()
+        card_border.configure(width=560, height=300)
+        card_border.pack_propagate(False)
 
-        self.connect_button = ttk.Button(content_frame, text="Wejdź", command=self.connect_with_cookie)
-        self.connect_button.pack(pady=10)
+        card = tk.Frame(card_border, bg=self._card_bg, padx=48, pady=32)
+        card.pack(fill='both', expand=True)
 
-        # Automat: logowanie przez okno przeglądarki (Selenium)
-        self.browser_login_button = ttk.Button(content_frame, text="Zaloguj przez przeglądarkę (automatycznie pobierz cookie)", command=self.start_steam_login_flow)
-        self.browser_login_button.pack(pady=(0, 10))
+        title_row = tk.Frame(card, bg=self._card_bg)
+        title_row.pack(fill='x', pady=(0, 24))
+        tk.Label(title_row, text="Logowanie", font=("Arial", 18, "bold"), fg='#DBDBDB', bg=self._card_bg).pack(side='left')
+        tk.Frame(title_row, bg=self._accent, height=2).pack(side='left', fill='x', expand=True, padx=(12, 0), pady=(14, 0))
 
-        # Zapamiętaj mnie (persist cookie do czasu ręcznego wylogowania)
         self.remember_me_var = tk.BooleanVar(value=False)
-        self.remember_me_cb = ttk.Checkbutton(content_frame, text="Zapamiętaj mnie na tym urządzeniu", variable=self.remember_me_var)
-        self.remember_me_cb.pack(pady=(0, 6))
 
-        self.login_status = ttk.Label(content_frame, text="Tryb bez cookie: ograniczony (historia cen niedostępna).", foreground='gray')
-        self.login_status.pack(pady=5)
-        
+        self.guest_button = RoundedButton(
+            card,
+            text="Wejdź jako Gość",
+            command=self.connect_guest,
+            bg_color=self._button_dark,
+            hover_color='#3A3A3A',
+            active_color='#242424',
+            radius=12,
+            text_color='#DBDBDB'
+        )
+        self.guest_button.pack(fill='x', pady=(0, 14))
+
+        self.browser_login_button = RoundedButton(
+            card,
+            text="Zaloguj przez Steam",
+            command=self.start_steam_login_flow,
+            bg_color=self._button_green,
+            hover_color='#7FB636',
+            active_color='#5C8727',
+            radius=12,
+            text_color='#DBDBDB',
+            icon_image=self._steam_icon_image,
+            icon_size=(26, 18),
+            icon_gap=10
+        )
+        self.browser_login_button.pack(fill='x', pady=(0, 18))
+
+        remember_frame = tk.Frame(card, bg=self._card_bg)
+        remember_frame.pack(fill='x')
+        self.remember_me_cb = ttk.Checkbutton(
+            remember_frame,
+            text="Zapamiętaj mnie",
+            variable=self.remember_me_var,
+            style='Login.TCheckbutton'
+        )
+        self.remember_me_cb.pack(side='left')
+
+        self.login_status = tk.Label(card, text="", fg='#DBDBDB', bg=self._card_bg, wraplength=420, justify='left')
+        self.login_status.pack(fill='x', pady=(18, 0))
+
+        self.manual_toggle = ttk.Button(
+            container,
+            text="Mam cookie steamLoginSecure",
+            style='Link.TButton',
+            command=self._toggle_manual_section
+        )
+        self.manual_toggle.grid(row=2, column=0, pady=(24, 6))
+
+        self.manual_section = tk.Frame(container, bg=self._bg_color)
+        self.manual_section.grid(row=3, column=0, pady=(0, 40))
+        self.manual_section.grid_remove()
+
+        manual_card = tk.Frame(
+            self.manual_section,
+            bg=self._card_bg,
+            padx=32,
+            pady=24,
+            highlightbackground='#1E2130',
+            highlightthickness=1
+        )
+        manual_card.pack()
+        tk.Label(manual_card, text="Wklej wartość 'steamLoginSecure':", bg=self._card_bg, fg='#DBDBDB').grid(row=0, column=0, sticky='w')
+        self.cookie_entry = ttk.Entry(manual_card, width=64)
+        self.cookie_entry.grid(row=1, column=0, sticky='ew', pady=(6, 12))
+        manual_card.grid_columnconfigure(0, weight=1)
+        self.connect_button = ttk.Button(manual_card, text="Zapisz cookie i kontynuuj", command=self.connect_with_cookie)
+        self.connect_button.grid(row=2, column=0, sticky='ew')
+
     def connect_with_cookie(self):
         """Sprawdza cookie, zapisuje je w kontrolerze i przełącza do widoku wyszukiwania."""
         cookie_value = self.cookie_entry.get().strip()
-        
+
         if not cookie_value:
             # Tryb ograniczony bez cookie
             self.controller.login_cookie = None
@@ -90,6 +303,16 @@ class LoginView:
         try:
             if self.remember_me_var.get() and hasattr(self.controller, 'persist_auth_state'):
                 self.controller.persist_auth_state()
+        except Exception:
+            pass
+        self.controller.switch_view("search")
+
+    def connect_guest(self):
+        """Przechodzi do trybu gościa z komunikatem ostrzegawczym."""
+        self.controller.login_cookie = None
+        self.controller.steam_name = "Gość"
+        try:
+            self.login_status.config(text="Tryb gościa: historia cen wymaga pełnego logowania.", foreground='#9CA3C4')
         except Exception:
             pass
         self.controller.switch_view("search")
@@ -206,7 +429,7 @@ class LoginView:
                     try:
                         edge_options.add_argument("--log-level=3")
                         edge_options.add_argument("--disable-logging")
-                        edge_options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"]) 
+                        edge_options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
                         edge_options.add_experimental_option("useAutomationExtension", False)
                     except Exception:
                         pass
@@ -231,7 +454,7 @@ class LoginView:
                     try:
                         chrome_options.add_argument("--log-level=3")
                         chrome_options.add_argument("--disable-logging")
-                        chrome_options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"]) 
+                        chrome_options.add_experimental_option("excludeSwitches", ["enable-logging", "enable-automation"])
                         chrome_options.add_experimental_option("useAutomationExtension", False)
                     except Exception:
                         pass
@@ -349,3 +572,31 @@ class LoginView:
                 fn()
             except Exception:
                 pass
+
+    def _toggle_manual_section(self):
+        if self.manual_section.winfo_ismapped():
+            self.manual_section.grid_remove()
+            self.manual_toggle.config(text="Mam cookie steamLoginSecure")
+        else:
+            self.manual_section.grid()
+            self.manual_toggle.config(text="Ukryj ręczne logowanie")
+
+    def _build_styles(self):
+        style = ttk.Style()
+        try:
+            style.theme_use('clam')
+        except Exception:
+            pass
+        style.configure('Login.TCheckbutton', background=self._card_bg, foreground='#DBDBDB')
+        style.map(
+            'Login.TCheckbutton',
+            foreground=[('disabled', '#7f7f7f')],
+            background=[
+                ('active', self._card_bg),
+                ('selected', self._card_bg),
+                ('!active', self._card_bg)
+            ]
+        )
+
+        style.configure('Link.TButton', font=("Arial", 11, 'underline'), padding=4, background=self._bg_color, foreground='#DBDBDB', relief='flat')
+        style.map('Link.TButton', foreground=[('active', '#ffffff')], background=[('active', self._bg_color)])
