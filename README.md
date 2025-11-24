@@ -180,6 +180,10 @@ CS2 Skin Analyzer/
 
 ### CS2 Skin Analyzer v0.6 (Tydzień 6):
 
+#### Ekran Logowania (Reworked)
+
+![gui_login_v0.6](https://github.com/sqnlol/dao/blob/main/src/img/gui_login_v0.6.png?raw=true)
+
 #### Cache obrazków skrzyń i akcje w widoku szczegółów
 
 - `CasesView` wczytuje listę skrzyń z modułu `case_images_cache`, sprawdza brakujące zasoby i w tle pobiera ich miniatury prosto ze Steam Market (z adaptacyjnym opóźnieniem i logami postępu). Po zakończeniu siatka kafelków automatycznie się odświeża, dzięki czemu widok zawsze pokazuje realne obrazki, a nie placeholdery.
@@ -196,6 +200,7 @@ CS2 Skin Analyzer/
 | **Akcje w szczegółach skrzyni** | `CaseDetailView` pokazuje ścieżkę cache, pozwala otworzyć plik/ folder oraz przenosi do wyszukiwarki Steam jednym kliknięciem. | Ukończono |
 | **Sugestie w LocalAppData** | Wszystkie moduły (`app.py`, `suggestions_loader.py`, `skin_list_builder.py`) korzystają z `resource_paths.get_writable_suggestions_path()`, więc dane autouzupełniania zapisują się w katalogu użytkownika zarówno w dev, jak i w buildzie `.exe`. | Ukończono |
 | **Szybkie odświeżanie autouzupełniania** | Przycisk w SearchView wywołuje `_fetch_suggestions_async`, który ładuje lokalne `suggestions.txt` i po wysłaniu komunikatu do GUI przeładowuje taksonomię (gloves, agents, graffiti, kontenery) bez dodatkowego ruchu sieciowego. | Ukończono |
+| **Rework graficzny** | Ulepszenie szaty graficznej na przestrzeni całej aplikacji | W trakcie |
 
 ### CS2 Skin Analyzer v0.5 (Tydzień 5):
 
