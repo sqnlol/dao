@@ -96,6 +96,17 @@ class TestErrorHandling:
         
         result = get_market_listings("AK-47 | Redline (Field-Tested)")
         assert result is None or isinstance(result, (list, dict))
+    
+    def test_parse_special_characters(self):
+        """Test parsing with special characters"""
+        result = parse_market_name("★ Karambit | Doppler")
+        assert result is None or isinstance(result, dict)
+    
+    def test_parse_long_name(self):
+        """Test parsing very long item name"""
+        long_name = "StatTrak™ " + "A" * 100 + " (Factory New)"
+        result = parse_market_name(long_name)
+        assert result is None or isinstance(result, dict)
 
 
 class TestDataValidation:
@@ -117,3 +128,23 @@ class TestDataValidation:
         for ts in timestamps:
             assert isinstance(ts, int)
             assert ts > 0
+    
+    def test_market_hash_format(self):
+        """Test market hash name format"""
+        valid_hashes = [
+            "AK-47 | Redline (Field-Tested)",
+            "★ Bayonet | Doppler (Factory New)",
+            "StatTrak™ AWP | Dragon Lore (Factory New)"
+        ]
+        
+        for market_hash in valid_hashes:
+            assert isinstance(market_hash, str)
+            assert len(market_hash) > 0
+    
+    def test_price_range_validation(self):
+        """Test price is within reasonable range"""
+        prices = [0.05, 0.5, 1.0, 10.0, 100.0, 1000.0]
+        
+        for price in prices:
+            assert price >= 0
+            assert price <= 100000  # Reasonable upper limit

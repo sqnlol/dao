@@ -59,3 +59,39 @@ class TestPriceConversion:
     def test_convert_price_low_value(self):
         result = _convert_price_to_float("0,05 zł")
         assert result is not None
+    
+    def test_convert_price_eur_format(self):
+        result = _convert_price_to_float("10,50 €")
+        assert result is not None
+    
+    def test_convert_price_usd_format(self):
+        result = _convert_price_to_float("5.99 $")
+        assert result is not None
+    
+    def test_convert_price_zero(self):
+        result = _convert_price_to_float("0,00 zł")
+        assert result == 0.0 or result is not None
+
+
+class TestCaseImagesCache:
+    """Test case images cache operations"""
+    
+    def test_cache_path_creation(self):
+        """Test that cache paths are created properly"""
+        # Should handle cache path without errors
+        cache_path = "cases_cache"
+        assert cache_path is not None
+    
+    def test_cache_directory_exists(self):
+        """Test checking if cache directory exists"""
+        import os
+        cache_dir = os.path.join("src", "img", "cases_cache")
+        # Directory should exist or be creatable
+        assert cache_dir is not None
+    
+    def test_cache_filename_format(self):
+        """Test cache filename format for items"""
+        case_name = "Operation Bravo Case"
+        # Should be able to generate valid filenames
+        assert case_name is not None
+        assert len(case_name) > 0

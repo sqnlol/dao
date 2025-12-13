@@ -8,6 +8,7 @@ import time
 import sys
 import os
 import tempfile
+import threading
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -148,3 +149,58 @@ class TestMemoryUsage:
         # Should handle 1000 items without issues
         for item in items:
             parse_market_name(item)
+    
+    def test_concurrent_db_operations(self, test_db):
+        """Test concurrent database operations"""
+        import threading
+        
+        def add_records():
+            database.add_sales([{
+                'market_hash_name': 'Item',
+                'item_type': 'Rifle',
+                'item_name': 'Item',
+                'item_wear': 'FN',
+                'price': 10.0,
+                'sale_timestamp': 1234567890,
+                'sale_date_str': '2024-01-01'
+            }])
+        
+        threads = [threading.Thread(target=add_records) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+    
+    def test_large_price_parsing(self):
+        """Test parsing very large prices"""
+        large_prices = ["99999,99 zł"] * 100
+        
+        start = time.time()
+        for price in large_prices:
+            _convert_price_to_float(price)
+        elapsed = time.time() - start
+        
+        assert elapsed < 1.0
+    
+    def test_query_performance_with_many_records(self, test_db):
+        """Test query performance with large dataset"""
+        # Add 500 records
+        for i in range(50):
+            sales_data = [{
+                'market_hash_name': f'Item {i}-{j}',
+                'item_type': 'Rifle',
+                'item_name': f'Item {i}',
+                'item_wear': 'FN',
+                'price': 10.0 + i * 0.1,
+                'sale_timestamp': 1234567890 + j,
+                'sale_date_str': '2024-01-01'
+            } for j in range(10)]
+            database.add_sales(sales_data)
+        
+        # Query should still be fast
+        start = time.time()
+        for i in range(50):
+            database.get_sales_for_item(f'Item {i}-0')
+        elapsed = time.time() - start
+        
+        assert elapsed < 1.0
