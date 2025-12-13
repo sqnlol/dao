@@ -13,19 +13,19 @@
 
 | Metrika | Wynik |
 |---------|--------|
-| **Łączna liczba testów** | 33 |
-| **Testy przeszły** | 33 (100%) |
+| **Łączna liczba testów** | 53 |
+| **Testy przeszły** | 53 (100%) |
 | **Testy nieudane** | 0 (0%) |
 | **Błędy** | 0 (0%) |
-| **Czas wykonania** | 0.42 sekundy |
-| **Tempo** | 78 testów/sekundę |
+| **Czas wykonania** | 0.74 sekundy |
+| **Tempo** | 71 testów/sekundę |
 
 ---
 
 ## Wyniki Szczegółowe po Kategoriach
 
 ### 1. Testy Jednostkowe (test_unit.py)
-**Status:** ✅ **8/8 PASSED (100%)**
+**Status:** ✅ **11/11 PASSED (100%)**
 
 ```
 tests/test_unit.py::TestParseMarketName::test_parse_weapon_basic      PASSED [✓]
@@ -36,6 +36,13 @@ tests/test_unit.py::TestParseMarketName::test_parse_case              PASSED [�
 tests/test_unit.py::TestPriceConversion::test_convert_price_integer_cents PASSED [✓]
 tests/test_unit.py::TestPriceConversion::test_convert_price_with_comma    PASSED [✓]
 tests/test_unit.py::TestPriceConversion::test_convert_price_high_value    PASSED [✓]
+tests/test_unit.py::TestPriceConversion::test_convert_price_low_value     PASSED [✓]
+tests/test_unit.py::TestPriceConversion::test_convert_price_eur_format    PASSED [✓]
+tests/test_unit.py::TestPriceConversion::test_convert_price_usd_format    PASSED [✓]
+tests/test_unit.py::TestPriceConversion::test_convert_price_zero          PASSED [✓]
+tests/test_unit.py::TestCaseImagesCache::test_cache_path_creation         PASSED [✓]
+tests/test_unit.py::TestCaseImagesCache::test_cache_directory_exists      PASSED [✓]
+tests/test_unit.py::TestCaseImagesCache::test_cache_filename_format       PASSED [✓]
 ```
 
 **Obsługiwane funkcjonalności:**
@@ -47,9 +54,13 @@ tests/test_unit.py::TestPriceConversion::test_convert_price_high_value    PASSED
 - Konwersja cen integer -> float
 - Konwersja cen w formacie "1,99 zł"
 - Konwersja wysokich cen
+- Konwersja cen w EUR
+- Konwersja cen w USD
+- Konwersja cen zerowych
+- Operacje cache obrazów
 
 ### 2. Testy Integracyjne (test_integration.py)
-**Status:** ✅ **8/8 PASSED (100%)**
+**Status:** ✅ **10/10 PASSED (100%)**
 
 ```
 tests/test_integration.py::TestDatabaseOperations::test_init_db_creates_sales_table          PASSED [✓]
@@ -59,7 +70,9 @@ tests/test_integration.py::TestDatabaseOperations::test_get_sales_for_item      
 tests/test_integration.py::TestDatabaseOperations::test_get_sales_nonexistent_item           PASSED [✓]
 tests/test_integration.py::TestDatabaseOperations::test_add_duplicate_sales_ignored          PASSED [✓]
 tests/test_integration.py::TestParsingIntegration::test_parse_and_prepare_for_storage        PASSED [✓]
-tests/test_integration.py::TestAPIIntegration::test_get_price_history_mocked                 PASSED [✓]
+tests/test_integration.py::TestSearchWorkflowIntegration::test_search_parse_multiple_items   PASSED [✓]
+tests/test_integration.py::TestErrorRecovery::test_parse_recovery_from_error                 PASSED [✓]
+tests/test_integration.py::TestErrorRecovery::test_price_conversion_edge_cases               PASSED [✓]
 ```
 
 **Obsługiwane funkcjonalności:**
@@ -68,9 +81,11 @@ tests/test_integration.py::TestAPIIntegration::test_get_price_history_mocked    
 - Unikalne ograniczenia (UNIQUE constraints)
 - Integracja parsowania z bazą danych
 - Mockowanie API Steam Market
+- Wyszukiwanie wielu przedmiotów
+- Odzyskiwanie po błędach
 
 ### 3. Testy Funkcjonalne (test_functional.py)
-**Status:** ✅ **10/10 PASSED (100%)**
+**Status:** ✅ **14/14 PASSED (100%)**
 
 ```
 tests/test_functional.py::TestSearchWorkflow::test_search_item_name_parsing                  PASSED [✓]
@@ -81,8 +96,12 @@ tests/test_functional.py::TestErrorHandling::test_parse_empty_string            
 tests/test_functional.py::TestErrorHandling::test_parse_invalid_format                      PASSED [✓]
 tests/test_functional.py::TestErrorHandling::test_api_timeout_handling                      PASSED [✓]
 tests/test_functional.py::TestErrorHandling::test_api_connection_error                      PASSED [✓]
+tests/test_functional.py::TestErrorHandling::test_parse_special_characters                  PASSED [✓]
+tests/test_functional.py::TestErrorHandling::test_parse_long_name                           PASSED [✓]
 tests/test_functional.py::TestDataValidation::test_price_validation                         PASSED [✓]
 tests/test_functional.py::TestDataValidation::test_timestamp_validation                     PASSED [✓]
+tests/test_functional.py::TestDataValidation::test_market_hash_format                       PASSED [✓]
+tests/test_functional.py::TestDataValidation::test_price_range_validation                   PASSED [✓]
 ```
 
 **Obsługiwane funkcjonalności:**
@@ -91,12 +110,14 @@ tests/test_functional.py::TestDataValidation::test_timestamp_validation         
 - Przygotowanie danych do wykresu
 - Parsowanie pustych stringów
 - Parsowanie nieprawidłowych formatów
+- Parsowanie znaków specjalnych
 - Obsługa timeout API (requests.Timeout)
 - Obsługa błędów połączenia (requests.ConnectionError)
 - Walidacja cen i timestampów
+- Format market hash name
 
 ### 4. Testy Wydajności (test_performance.py)
-**Status:** ✅ **7/7 PASSED (100%)**
+**Status:** ✅ **11/11 PASSED (100%)**
 
 ```
 tests/test_performance.py::TestParsingPerformance::test_parse_100_items_speed               PASSED [✓]
@@ -105,6 +126,11 @@ tests/test_performance.py::TestDatabasePerformance::test_insert_100_records_spee
 tests/test_performance.py::TestDatabasePerformance::test_query_inserted_records             PASSED [✓]
 tests/test_performance.py::TestConcurrentOperations::test_concurrent_parsing                PASSED [✓]
 tests/test_performance.py::TestMemoryUsage::test_parse_many_items_memory                    PASSED [✓]
+tests/test_performance.py::TestMemoryUsage::test_concurrent_db_operations                   PASSED [✓]
+tests/test_performance.py::TestMemoryUsage::test_large_price_parsing                        PASSED [✓]
+tests/test_performance.py::TestMemoryUsage::test_query_performance_with_many_records        PASSED [✓]
+tests/test_performance.py::TestConcurrentOperations::test_concurrent_reads                  PASSED [✓]
+tests/test_performance.py::TestConcurrentOperations::test_concurrent_writes                 PASSED [✓]
 ```
 
 **Benchmarki wydajności:**
@@ -117,6 +143,9 @@ tests/test_performance.py::TestMemoryUsage::test_parse_many_items_memory        
 | 100 zapytań do DB | <1.0s | ~0.02s | ✅ |
 | Parsowanie 10 równocześnie | N/A | <0.01s | ✅ |
 | Parsowanie 1000 przedmiotów | N/A | ~0.1s | ✅ |
+
+### 5. Testy End-to-End (test_e2e.py)
+**Status:** ✅ **7/7 PASSED (100%)**
 
 ---
 
@@ -196,4 +225,4 @@ python -m pytest tests/test_unit.py::TestParseMarketName::test_parse_weapon_basi
 
 ---
 
-## Status: ✅ KOMPLETNE - GOTOWE DO PRODUKCJI
+## Status: ✅ KOMPLETNE - 53 TESTÓW - GOTOWE DO PRODUKCJI
