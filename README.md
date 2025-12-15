@@ -180,6 +180,14 @@ CS2 Skin Analyzer/
 
 ### CS2 Skin Analyzer v0.7 (Tydzień 7):
 
+#### Ekran Wyszukiwania
+
+![gui_search_v0.7](https://github.com/sqnlol/dao/blob/main/src/img/gui_search_v0.7.png?raw=true)
+
+#### Ekran Wyników (schowane dane historyczne)
+
+![gui_result_v0.7](https://github.com/sqnlol/dao/blob/main/src/img/gui_result_v0.7.png?raw=true)
+
 | Data | Opis Zmiany / Działania | Status |
 | :--- | :--- | :--- |
 | **Nowy Design ResultsView** | Kompletny redesign widoku wyników z ciemnym motywem (#1e1e1e), wyśrodkowanym nagłówkiem z nazwą przedmiotu, separatorem i rozwijanym menu dropdown. | Ukończono |
