@@ -180,11 +180,11 @@ CS2 Skin Analyzer/
 
 ### CS2 Skin Analyzer v0.7 (Tydzień 7):
 
-#### Ekran Wyszukiwania
+#### Ekran Wyszukiwania (Reworked)
 
 ![gui_search_v0.7](https://github.com/sqnlol/dao/blob/main/src/img/gui_search_v0.7.png?raw=true)
 
-#### Ekran Wyników (schowane dane historyczne)
+#### Ekran Wyników (Reworked)
 
 ![gui_result_v0.7](https://github.com/sqnlol/dao/blob/main/src/img/gui_result_v0.7.png?raw=true)
 
