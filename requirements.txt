@@ -1,7 +1,15 @@
-requests
-pyinstaller
-matplotlib
-Pillow
-selenium
-webdriver-manager
-numpy
+﻿# Core dependencies
+requests>=2.32.0
+matplotlib>=3.10.0
+numpy>=2.0.0
+Pillow>=12.0.0
+
+# Browser automation
+selenium>=4.38.0
+webdriver-manager>=4.0.0
+
+# Build tools
+pyinstaller>=6.16.0
+
+# Testing
+pytest>=8.0.0
