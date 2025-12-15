@@ -1056,7 +1056,7 @@ python src/main.py
 
 CS2 Skin Analyzer to kompleksowa aplikacja desktopowa wykorzystująca nowoczesne wzorce projektowe (MVC) i najlepsze praktyki programistyczne. Modułowa architektura umożliwia łatwą rozbudowę i utrzymanie kodu, a mechanizmy stabilności zapewniają niezawodne działanie przy komunikacji z zewnętrznym API Steam.
 
-**Autor:** *[Imię i nazwisko studenta]*  
-**Uczelnia:** *[Nazwa uczelni]*  
+**Autorzy:** *Mateusz Saj, Karol Szymaniak*  
+**Uczelnia:** *Szkoła Główna Gospodarstwa Wiejskiego w Warszawie*  
 **Kierunek:** Informatyka  
-**Rok akademicki:** 2024/2025
+**Rok akademicki:** 2025/2026
