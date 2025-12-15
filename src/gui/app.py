@@ -67,6 +67,8 @@ class MarketApp:
         self.steam_id = None
         self.steam_name = "Użytkowniku" 
         self.login_cookie = None
+        self.steam_avatar_url = None  # URL do zdjęcia profilowego Steam
+        self.steam_frame_url = None   # URL do ramki avatara Steam
         
         # Ustawienia waluty (domyślnie PLN)
         self.currency = "PLN"  # Opcje: PLN, USD, EUR
@@ -94,16 +96,17 @@ class MarketApp:
         # Przechwyć zamknięcie okna aby przerwać pobieranie
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         
-        # --- Start aplikacji ---
-        # Autologin jeśli pamiętany użytkownik
-        self._attempt_auto_login()
-        self.process_queue()
         # Auto-odświeżanie sugestii: domyślnie wyłączone; użytkownik włącza z SearchView
         self._auto_enabled = False
         self._auto_min_s = 600
         self._auto_max_s = 900
         self._auto_after_id = None
         self._next_auto_refresh_ts = None
+        
+        # --- Start aplikacji ---
+        # Autologin jeśli pamiętany użytkownik (wczytuje też ustawienia interwału)
+        self._attempt_auto_login()
+        self.process_queue()
 
     def set_taskbar_percent(self, percent: int | None):
         """Ustawia procent w tytule okna (widoczny jako tekst na pasku zadań).
@@ -164,11 +167,29 @@ class MarketApp:
                 data = json.load(open(path, 'r', encoding='utf-8'))
                 cookie = data.get('login_cookie')
                 steam_name = data.get('steam_name') or 'Użytkowniku Steam'
+                avatar_url = data.get('steam_avatar_url')
+                frame_url = data.get('steam_frame_url')
+                # Wczytaj ustawienia interwału
+                if 'auto_interval_min' in data:
+                    self._auto_min_s = int(data['auto_interval_min'])
+                if 'auto_interval_max' in data:
+                    self._auto_max_s = int(data['auto_interval_max'])
+                
+                # Zaktualizuj wartości w SearchView jeśli już istnieje
+                if 'search' in self.views:
+                    sv = self.views['search']
+                    if hasattr(sv, 'auto_from_var'):
+                        sv.auto_from_var.set(str(self._auto_min_s))
+                    if hasattr(sv, 'auto_to_var'):
+                        sv.auto_to_var.set(str(self._auto_max_s))
+                
                 if cookie and isinstance(cookie, str) and len(cookie) > 10:
                     # Walidacja cookie: lekki ping do endpointu priceoverview (nie wymaga pełnej historii)
                     if self._validate_cookie(cookie):
                         self.login_cookie = cookie
                         self.steam_name = steam_name
+                        self.steam_avatar_url = avatar_url
+                        self.steam_frame_url = frame_url
                         print("Auto-login: przywrócono sesję zapamiętanego użytkownika (cookie OK).")
                         self.switch_view('search')
                         return
@@ -222,19 +243,70 @@ class MarketApp:
                 import json
                 payload = {
                     'login_cookie': self.login_cookie,
-                    'steam_name': self.steam_name
+                    'steam_name': self.steam_name,
+                    'steam_avatar_url': getattr(self, 'steam_avatar_url', None),
+                    'steam_frame_url': getattr(self, 'steam_frame_url', None),
+                    'auto_interval_min': self._auto_min_s,
+                    'auto_interval_max': self._auto_max_s
                 }
                 json.dump(payload, open(path, 'w', encoding='utf-8'))
         except Exception as e:
             print(f"Nie udało się zapisać auth_state: {e}", file=sys.stderr)
 
-    def clear_auth_state(self):
+    def persist_interval_settings(self, min_s: int, max_s: int):
+        """Zapisuje ustawienia interwału do pliku."""
+        self._auto_min_s = min_s
+        self._auto_max_s = max_s
         path = self._auth_state_path()
         try:
+            import json
+            # Wczytaj istniejące dane lub utwórz nowe
+            data = {}
             if os.path.exists(path):
-                os.remove(path)
+                try:
+                    data = json.load(open(path, 'r', encoding='utf-8'))
+                except Exception:
+                    pass
+            # Zaktualizuj interwał
+            data['auto_interval_min'] = min_s
+            data['auto_interval_max'] = max_s
+            json.dump(data, open(path, 'w', encoding='utf-8'))
         except Exception as e:
-            print(f"Nie udało się usunąć auth_state: {e}", file=sys.stderr)
+            print(f"Nie udało się zapisać ustawień interwału: {e}", file=sys.stderr)
+
+    def clear_auth_state(self):
+        """Czyści dane logowania ale zachowuje ustawienia (np. interwały)."""
+        # Wyczyść zmienne w pamięci
+        self.login_cookie = None
+        self.steam_name = "Gość"
+        self.steam_avatar_url = None
+        self.steam_frame_url = None
+        self._cached_avatar_photo = None
+        self._cached_frame_photo = None
+        
+        # Zaktualizuj plik - usuń dane użytkownika ale zachowaj interwały
+        path = self._auth_state_path()
+        try:
+            import json
+            data = {}
+            if os.path.exists(path):
+                try:
+                    data = json.load(open(path, 'r', encoding='utf-8'))
+                except Exception:
+                    pass
+            # Usuń dane logowania
+            data.pop('login_cookie', None)
+            data.pop('steam_name', None)
+            data.pop('steam_avatar_url', None)
+            data.pop('steam_frame_url', None)
+            # Zapisz z powrotem (zachowuje interwały)
+            json.dump(data, open(path, 'w', encoding='utf-8'))
+        except Exception as e:
+            print(f"Nie udało się wyczyścić auth_state: {e}", file=sys.stderr)
+    
+    def is_logged_in(self) -> bool:
+        """Sprawdza czy użytkownik jest zalogowany."""
+        return bool(self.login_cookie and self.steam_avatar_url)
 
     # ------------------------------------------------------------------
     # CYKLICZNE POBIERANIE SUGESTII (TYMCZASOWE)
@@ -492,14 +564,16 @@ class MarketApp:
     def switch_view(self, view_name, **kwargs):
         """Przełącza aktualnie wyświetlany widok."""
         
-        # Pokaż/ukryj sidebar w zależności od widoku
-        if view_name == "login":
-            self._hide_sidebar()
-        else:
-            self._show_sidebar()
+        # Ukryj sidebar - nowy UI go nie potrzebuje
+        self._hide_sidebar()
         
         if view_name == "search":
             self.views["search"].update_welcome_label()
+        
+        elif view_name == "cases":
+            # Odśwież header bar w widoku cases
+            if hasattr(self.views.get("cases"), 'header_bar'):
+                self.views["cases"].header_bar.update_user_info()
             
         elif view_name == "results":
             if 'item_name' in kwargs and 'history_data' in kwargs and 'listings_data' in kwargs:
@@ -511,13 +585,27 @@ class MarketApp:
                      currency_code=kwargs.get('currency_code')
                  )
         elif view_name == "case_detail":
+            # Odśwież header bar w widoku case_detail
+            if hasattr(self.views.get("case_detail"), 'header_bar'):
+                self.views["case_detail"].header_bar.update_user_info()
             if 'case' in kwargs:
                 self.views["case_detail"].show_case(kwargs['case'])
-            
+        elif view_name == "login":
+            # Przy przejściu na login odśwież wszystkie header bary (wylogowanie)
+            self._refresh_all_headers()
+
+        # Podnieś widok na wierzch
         view = self.views.get(view_name)
         if view:
             view.frame.tkraise()
             self.current_view = view
+
+    def _refresh_all_headers(self):
+        """Odświeża header bary we wszystkich widokach."""
+        for view_name in ['cases', 'case_detail']:
+            view = self.views.get(view_name)
+            if view and hasattr(view, 'header_bar'):
+                view.header_bar.update_user_info()
             
     # ------------------------------------------------------------------
     # OBSŁUGA SUGEROWANYCH PRZEDMIOTÓW

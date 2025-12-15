@@ -9,16 +9,18 @@ import requests
 from io import BytesIO
 from src import steam_market
 from src.case_images_cache import get_all_cases_list, download_all_cases_async, is_cached
+from src.gui.header_bar import HeaderBar
 
 
 class CasesView:
     def __init__(self, master, app_controller):
         self.controller = app_controller
         
-        self.frame = ttk.Frame(master, padding="10")
+        # Główna ramka – ciemne tło
+        self.frame = tk.Frame(master, bg='#1e1e1e')
         self.frame.grid(row=0, column=0, sticky="nsew") 
         
-        self.frame.grid_rowconfigure(2, weight=1) 
+        self.frame.grid_rowconfigure(1, weight=1)  # główna zawartość rozciągalna
         self.frame.grid_columnconfigure(0, weight=1)
         
         # Cache obrazków
@@ -88,38 +90,31 @@ class CasesView:
             return os.path.basename(path)
 
     def _create_widgets(self):
-        # Nagłówek
-        header_frame = ttk.Frame(self.frame)
-        header_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
-        header_frame.grid_columnconfigure(0, weight=1) 
+        # ===================== NAGŁÓWEK (współdzielony komponent) =====================
+        self.header_bar = HeaderBar(self.frame, self.controller, active_tab='cases')
 
-        ttk.Label(header_frame, text="Skrzynie CS2", font=("Arial", 16, "bold")).pack(side='left')
-        
-        # Pasek informacyjny
-        info_label = ttk.Label(header_frame, text="Przeglądaj dostępne skrzynie", foreground='gray')
-        info_label.pack(side='right', padx=10)
-
-        # Separator
-        ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
-
-        # Główna zawartość - przewijany canvas z siatką skrzyń
-        main_container = ttk.Frame(self.frame)
-        main_container.grid(row=2, column=0, sticky='nsew')
+        # ===================== GŁÓWNA ZAWARTOŚĆ (row 1) =====================
+        main_container = tk.Frame(self.frame, bg='#1e1e1e')
+        main_container.grid(row=1, column=0, sticky='nsew', padx=16, pady=16)
         main_container.grid_rowconfigure(0, weight=1)
         main_container.grid_columnconfigure(0, weight=1)
         
         # Canvas ze scrollbarem
-        self.canvas = tk.Canvas(main_container, bg='#f0f0f0', highlightthickness=0)
+        self.canvas = tk.Canvas(main_container, bg='#1e1e1e', highlightthickness=0)
         scrollbar = ttk.Scrollbar(main_container, orient="vertical", command=self.canvas.yview)
-        self.scrollable_frame = ttk.Frame(self.canvas)
+        self.scrollable_frame = tk.Frame(self.canvas, bg='#1e1e1e')
         
         self.scrollable_frame.bind(
             "<Configure>",
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+            lambda e: self._update_scroll_region()
         )
         
-        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        # Wyśrodkuj zawartość w canvas
+        self._canvas_window = self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
         self.canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Bind do zmiany rozmiaru canvas, aby centrować zawartość
+        self.canvas.bind('<Configure>', self._center_scrollable_frame)
         
         self.canvas.grid(row=0, column=0, sticky='nsew')
         scrollbar.grid(row=0, column=1, sticky='ns')
@@ -130,6 +125,27 @@ class CasesView:
         # Stwórz siatkę kafelków ze skrzyniami
         self._create_cases_grid()
 
+    def _update_scroll_region(self):
+        """Aktualizuje region przewijania canvas."""
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _center_scrollable_frame(self, event=None):
+        """Centruje zawartość siatki w canvas."""
+        try:
+            canvas_width = self.canvas.winfo_width()
+            frame_width = self.scrollable_frame.winfo_reqwidth()
+            
+            # Jeśli zawartość jest węższa niż canvas, wycentruj ją
+            if frame_width < canvas_width:
+                x_offset = (canvas_width - frame_width) // 2
+            else:
+                x_offset = 0
+            
+            self.canvas.coords(self._canvas_window, x_offset, 0)
+            self._update_scroll_region()
+        except Exception:
+            pass
+
     def _on_mousewheel(self, event):
         """Obsługa przewijania kółkiem myszy."""
         try:
@@ -139,29 +155,31 @@ class CasesView:
 
     def _create_cases_grid(self):
         """Tworzy siatkę z kafelkami skrzyń (obrazy z cache)."""
-        columns = 5  # domyślnie 5 skrzyń na szerokim układzie 1600 px
+        columns = 6  # 6 skrzyń na szerokim układzie 1600 px
         try:
             current_width = max(self.controller.root.winfo_width(), 0)
-            if current_width and current_width < 1400:
+            if current_width and current_width < 1200:
                 columns = 4
+            elif current_width and current_width < 1400:
+                columns = 5
         except Exception:
-            columns = 5
+            columns = 6
         
         for idx, case in enumerate(self.cases_data):
             row = idx // columns
             col = idx % columns
             
-            # Biały kafelek z lekkim obramowaniem
-            tile = tk.Frame(self.scrollable_frame, bg='#ffffff', highlightthickness=1, highlightbackground='#dddddd')
+            # Ciemny kafelek z niebieskim obramowaniem
+            tile = tk.Frame(self.scrollable_frame, bg='#2a2a2a', highlightthickness=1, highlightbackground='#5588cc')
             tile.grid(row=row, column=col, padx=10, pady=10, sticky='n')
 
-            # Obrazek na białym tle
-            img_label = tk.Label(tile, bg='#ffffff')
+            # Obrazek na ciemnym tle
+            img_label = tk.Label(tile, bg='#2a2a2a')
             img_label.pack(padx=12, pady=(12, 6))
 
             # Podpis z nazwą skrzyni
             name_text = case.get('name') or 'Skrzynia'
-            name_label = tk.Label(tile, text=name_text, bg='#ffffff', fg='#333333', font=("Arial", 10))
+            name_label = tk.Label(tile, text=name_text, bg='#2a2a2a', fg='#ffffff', font=("Segoe UI", 10))
             name_label.configure(wraplength=160, justify='center')
             name_label.pack(padx=8, pady=(0, 12))
 
@@ -175,7 +193,7 @@ class CasesView:
                 self._load_case_image_from_cache(case['cache_path'], img_label)
             else:
                 # Jeśli nie ma w cache, pokaż placeholder
-                img_label.config(text="Pobieranie...", font=("Arial", 9), fg='gray')
+                img_label.config(text="Pobieranie...", font=("Segoe UI", 9), fg='#888888')
 
     def _load_case_image_from_cache(self, cache_path, label):
         """Ładuje obraz z cache i skaluje proporcjonalnie do maksymalnej wysokości."""
@@ -184,15 +202,9 @@ class CasesView:
         def load_and_set():
             try:
                 img = Image.open(cache_path)
-                # Jeśli obraz ma kanał alfa, wypełnij tło na biało dla spójnego wyglądu
+                # Zachowaj przezroczystość dla ciemnego tła
                 if img.mode not in ("RGB", "RGBA"):
                     img = img.convert("RGBA")
-                if img.mode == "RGBA":
-                    try:
-                        white_bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
-                        img = Image.alpha_composite(white_bg, img).convert("RGB")
-                    except Exception:
-                        img = img.convert("RGB")
 
                 max_h = 180
                 w, h = img.size
@@ -207,12 +219,12 @@ class CasesView:
                         label.image = photo
                     except Exception as e:
                         print(f"Błąd PhotoImage (cache): {e}", file=sys.stderr)
-                        label.config(text="Błąd")
+                        label.config(text="Błąd", fg='#888888')
 
                 label.after(0, apply)
             except Exception as e:
                 print(f"Błąd ładowania z cache {cache_path}: {e}", file=sys.stderr)
-                label.after(0, lambda: label.config(text="Błąd"))
+                label.after(0, lambda: label.config(text="Błąd", fg='#888888'))
 
         threading.Thread(target=load_and_set, daemon=True).start()
 

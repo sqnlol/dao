@@ -22,98 +22,135 @@ class SearchView:
     def __init__(self, master, app_controller):
         self.controller = app_controller
         
-        self.frame = ttk.Frame(master, padding="10")
+        # Główna ramka – ciemne tło
+        self.frame = tk.Frame(master, bg='#1e1e1e')
         self.frame.grid(row=0, column=0, sticky="nsew") 
         
-        self.frame.grid_rowconfigure(3, weight=1) 
-        self.frame.grid_columnconfigure(0, weight=1) 
+        self.frame.grid_rowconfigure(1, weight=1)  # środek rozciągalny
+        self.frame.grid_columnconfigure(0, weight=1)
 
         self._create_widgets()
         # Dane rozszerzonych kategorii dostarczane przez skin_list.py (brak lokalnych struktur)
         
     def _create_widgets(self):
-        # Ustaw styl ciemny dla kilku elementów
+        # ===================== STYLE =====================
         style = ttk.Style()
         try:
             style.theme_use('clam')
         except Exception:
             pass
-        style.configure('Dark.TFrame', background='#2E2E2E')
-        style.configure('Dark.TLabel', background='#2E2E2E', foreground='white')
-        style.configure('Dark.TButton', background='#3A3A3A', foreground='white')
-        # Ciemny (czarny) nagłówek z wyśrodkowanym tytułem
-        style.configure('HeaderDark.TFrame', background='#111111')
-        style.configure('HeaderDark.TLabel', background='#111111', foreground='#ffffff', font=("Arial", 16, "bold"))
-        header_frame = ttk.Frame(self.frame, style='HeaderDark.TFrame', padding="12 10 12 10")
-        header_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
-        header_frame.grid_columnconfigure(0, weight=1)
-        header_frame.grid_columnconfigure(1, weight=1)
-        header_frame.grid_columnconfigure(2, weight=0)
 
-        self.header_title = ttk.Label(header_frame, text="CS2 Skin Analyzer", style='HeaderDark.TLabel', anchor='center')
-        self.header_title.grid(row=0, column=1, sticky='n')
+        # Ciemne tło ramek i etykiet
+        style.configure('Search.TFrame', background='#1e1e1e')
+        style.configure('Search.TLabel', background='#1e1e1e', foreground='#ffffff')
+        style.configure('SearchGray.TLabel', background='#1e1e1e', foreground='#888888')
+        style.configure('SearchHeader.TLabel', background='#1e1e1e', foreground='#ffffff', font=('Segoe UI', 14))
+        style.configure('SearchTab.TLabel', background='#1e1e1e', foreground='#ffffff', font=('Segoe UI', 12))
 
-        # Prawa strona nagłówka: przycisk Wyloguj (skrajnie po prawej),
-        # po jego lewej komunikat o braku cookie, a jeszcze bardziej po lewej etykieta powitania
-        right_header_group = ttk.Frame(header_frame, style='HeaderDark.TFrame')
-        right_header_group.grid(row=0, column=2, sticky='e')
-        # Użyj grid wewnątrz grupy, aby precyzyjnie ustawić kolejność: [cookie msg] [Wyloguj] [Witaj, X]
-        right_header_group.grid_columnconfigure(0, weight=0)
-        right_header_group.grid_columnconfigure(1, weight=0)
-        right_header_group.grid_columnconfigure(2, weight=0)
+        # Ciemne LabelFrame z niebieskim obramowaniem
+        style.configure('SearchLF.TLabelframe', background='#1e1e1e', bordercolor='#5588cc', relief='solid')
+        style.configure('SearchLF.TLabelframe.Label', background='#1e1e1e', foreground='#88bbff', font=('Segoe UI', 10))
 
-        # Komunikat o braku cookie (szary) – po lewej od Wyloguj
-        self.cookie_mode_label = ttk.Label(right_header_group, text="Brak Cookie - funkcjonalność ograniczona", foreground='gray')
-        self.cookie_mode_label.grid(row=0, column=0, padx=(0, 12))
+        # Ciemne Combobox – ciemne pole, biały tekst
+        style.configure('Dark.TCombobox', fieldbackground='#3a3a3a', background='#3a3a3a', foreground='#ffffff', arrowcolor='#ffffff')
+        style.map('Dark.TCombobox', fieldbackground=[('readonly', '#3a3a3a')], foreground=[('readonly', '#ffffff')])
 
-        # Przycisk Wyloguj (środek) — grubsza ramka
+        # Checkboxy w odpowiednich kolorach
+        style.configure('SearchCheck.TCheckbutton', background='#1e1e1e', foreground='#00cccc', font=('Segoe UI', 10))
+        style.map('SearchCheck.TCheckbutton', background=[('active', '#1e1e1e')])
+
+        # Przycisk Szukaj – niebieskofioletowy
+        style.configure('Search.TButton', background='#6688cc', foreground='#1e1e1e', font=('Segoe UI', 14, 'bold'), padding=(24, 12))
+        style.map('Search.TButton', background=[('active', '#7799dd')])
+
+        # Przycisk akcji (mniejszy)
         style.configure('Action.TButton', borderwidth=2, padding=8)
-        self.logout_button = ttk.Button(right_header_group, text="Wyloguj", command=self._go_back_to_login, style='Action.TButton')
-        self.logout_button.grid(row=0, column=1, padx=(0, 12))
 
-        # Etykieta powitania (skrajnie prawa kolumna)
-        self.welcome_label = ttk.Label(right_header_group, text=f"Witaj, {self.controller.steam_name}")
-        self.welcome_label.grid(row=0, column=2, sticky='e')
-        
-        info_frame = ttk.Frame(self.frame, style='Dark.TFrame', padding="8 6 8 6")
-        info_frame.grid(row=1, column=0, sticky='ew')
-        info_frame.grid_columnconfigure(0, weight=1)
-        # Aktualizacja wersji aplikacji wyświetlanej w pasku informacyjnym
-        self.version_label = ttk.Label(info_frame, text="Wersja: 0.4.5", style='Dark.TLabel')
-        self.version_label.pack(side='left', padx=8)
-        self.suggestions_label = ttk.Label(info_frame, text="Sugestie: ładowanie...", style='Dark.TLabel')
-        self.suggestions_label.pack(side='left', padx=8)
-        ttk.Button(info_frame, text="Odśwież autouzupełnianie", command=self._refresh_suggestions, style='Action.TButton').pack(side='right', padx=8)
-        ttk.Label(info_frame, text="Skrót: Ctrl+Enter — Pobierz i zapisz", style='Dark.TLabel').pack(side='right', padx=8)
+        # ===================== NAGŁÓWEK (row 0) =====================
+        header = tk.Frame(self.frame, bg='#1e1e1e')
+        header.grid(row=0, column=0, sticky='ew', padx=16, pady=(12, 0))
+        header.grid_columnconfigure(2, weight=1)
 
-        filters_section = ttk.LabelFrame(self.frame, text="Parametry wyszukiwania", padding="16 12 16 16")
-        filters_section.grid(row=2, column=0, sticky='nsew', pady=(8, 12))
-        
-        filters_section.grid_columnconfigure(1, weight=1)
-        filters_section.grid_columnconfigure(3, weight=1)
-        
-        # StatTrak / Souvenir
-        self.stattrack_var = tk.BooleanVar(value=False)
-        self.souvenir_var = tk.BooleanVar(value=False)
-        self.stattrack_check = ttk.Checkbutton(filters_section, text="StatTrak™", variable=self.stattrack_var,
-                                               onvalue=True, offvalue=False, command=self._on_stattrak_toggle)
-        self.stattrack_check.grid(row=0, column=0, padx=(0, 10), pady=5, sticky='w')
-        self.souvenir_check = ttk.Checkbutton(filters_section, text="Souvenir", variable=self.souvenir_var,
-                                              onvalue=True, offvalue=False, command=self._on_souvenir_toggle)
-        self.souvenir_check.grid(row=0, column=1, padx=(0, 10), pady=5, sticky='w')
-        # Jakość (domyślnie); dla kategorii Pojemnik zmieniana na "Rodzaj"
-        self.label_quality = ttk.Label(filters_section, text="Jakość:")
-        self.label_quality.grid(row=1, column=2, padx=(10, 5), pady=5, sticky='w')
-        self.wear_options = ["(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)", "Brak"]
-        self.wear_combobox = ttk.Combobox(filters_section, values=self.wear_options, width=18, state='readonly')
-        self.wear_combobox.grid(row=1, column=3, sticky='ew', pady=5)
-        self.wear_combobox.set("(Field-Tested)")
+        # Logo placeholder (możesz zastąpić własnym obrazkiem)
+        try:
+            import os
+            from PIL import Image, ImageTk
+            logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'img', 'CS2SkinAnalyzer.png')
+            if os.path.exists(logo_path):
+                img = Image.open(logo_path)
+                img.thumbnail((48, 48))
+                self._header_logo = ImageTk.PhotoImage(img)
+                logo_lbl = tk.Label(header, image=self._header_logo, bg='#1e1e1e')
+                logo_lbl.grid(row=0, column=0, padx=(0, 12))
+        except Exception:
+            pass
 
-        # Kategoria broni (np. Karabiny, Pistolety, Noże)
-        self.label_category = ttk.Label(filters_section, text="Kategoria broni:")
-        self.label_category.grid(row=1, column=0, padx=(0, 10), pady=5, sticky='w')
+        # Zakładki
+        tk.Label(header, text="Wyszukiwarka", bg='#1e1e1e', fg='#ffffff', font=('Segoe UI', 14)).grid(row=0, column=1, padx=(0, 24))
+        cases_lbl = tk.Label(header, text="Skrzynie", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 14), cursor='hand2')
+        cases_lbl.grid(row=0, column=2, sticky='w')
+        cases_lbl.bind('<Button-1>', lambda e: self.controller.switch_view('cases'))
+
+        # Prawa strona: powitanie + dropdown + avatar
+        right_group = tk.Frame(header, bg='#1e1e1e')
+        right_group.grid(row=0, column=3, sticky='e')
+
+        # Kontener na nazwę i strzałkę
+        user_dropdown_frame = tk.Frame(right_group, bg='#1e1e1e', cursor='hand2')
+        user_dropdown_frame.pack(side='left', padx=(0, 8))
+
+        self.welcome_label = tk.Label(user_dropdown_frame, text=f"Witaj,\n{self.controller.steam_name}", bg='#1e1e1e', fg='#ffffff', font=('Segoe UI', 10), justify='right')
+        self.welcome_label.pack(side='left')
+
+        # Strzałka w dół
+        self.dropdown_arrow = tk.Label(user_dropdown_frame, text="▼", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 8), cursor='hand2')
+        self.dropdown_arrow.pack(side='left', padx=(4, 0))
+
+        # Menu dropdown (ukryte domyślnie)
+        self.dropdown_menu = None
+        self.dropdown_visible = False
+
+        # Bindowanie kliknięcia na cały obszar
+        for widget in (user_dropdown_frame, self.welcome_label, self.dropdown_arrow):
+            widget.bind('<Button-1>', self._toggle_dropdown_menu)
+
+        # Avatar (canvas dla obrazka i ramki Steam)
+        self.avatar_canvas = tk.Canvas(right_group, width=52, height=52, bg='#1e1e1e', highlightthickness=0)
+        self.avatar_canvas.pack(side='left')
+        self._avatar_photo = None  # Przechowuje referencję do PhotoImage avatara
+        self._frame_photo = None   # Przechowuje referencję do PhotoImage ramki
+        # Domyślna ramka (niebieska)
+        self.avatar_canvas.create_rectangle(2, 2, 50, 50, outline='#5588cc', width=1, tags='default_frame')
+        self.avatar_canvas.create_text(26, 26, text="steam\nprofile", fill='#888888', font=('Segoe UI', 7), justify='center', tags='placeholder')
+        # Spróbuj załadować avatar z URL
+        self._load_avatar_async()
+
+        # Niebieska linia pozioma (z większym odstępem)
+        separator = tk.Frame(self.frame, bg='#5588cc', height=2)
+        separator.grid(row=0, column=0, sticky='sew', padx=0, pady=(70, 0))
+
+        # Ukryte elementy interfejsu starego (zachowane do kompatybilności)
+        self.cookie_mode_label = tk.Label(self.frame, text="", bg='#1e1e1e', fg='#888888')
+        self.logout_button = None  # placeholder – usunięty z widoku
+
+        # ===================== ŚRODKOWA SEKCJA FORMULARZA (row 1) =====================
+        center_wrapper = tk.Frame(self.frame, bg='#1e1e1e')
+        center_wrapper.grid(row=1, column=0, sticky='nsew')
+        center_wrapper.grid_rowconfigure(0, weight=1)
+        center_wrapper.grid_columnconfigure(0, weight=1)
+
+        form_container = tk.Frame(center_wrapper, bg='#1e1e1e')
+        form_container.place(relx=0.5, rely=0.45, anchor='center')
+
+        # --- Wiersz 1: Kategoria przedmiotu + Opcje ---
+        self.row1 = tk.Frame(form_container, bg='#1e1e1e')
+        self.row1.pack(pady=(0, 16))
+
+        # Kategoria przedmiotu (LabelFrame)
+        self.cat_lf = ttk.LabelFrame(self.row1, text="Kategoria przedmiotu", style='SearchLF.TLabelframe', padding=(12, 8))
+        self.cat_lf.pack(side='left', padx=(0, 24))
+
         categories = sorted(list(WEAPON_CATEGORIES.keys()))
-        # Rozszerzenia kategorii i rename Skrzynki->Pojemnik
         if 'Skrzynki' in categories and 'Pojemnik' not in categories:
             categories = [c for c in categories if c != 'Skrzynki'] + ['Pojemnik']
         extra_cats = ['Rękawice', 'Naklejka', 'Zeus x27', 'Graffiti', 'Agent', 'Inne']
@@ -121,99 +158,124 @@ class SearchView:
             if ec not in categories:
                 categories.append(ec)
         categories = sorted(categories)
-        self.category_combo = ttk.Combobox(filters_section, values=categories, state='readonly')
-        self.category_combo.grid(row=1, column=1, sticky='ew', pady=5)
+
+        self.category_combo = ttk.Combobox(self.cat_lf, values=categories, state='readonly', width=36, style='Dark.TCombobox')
+        self.category_combo.pack()
         if categories:
             self.category_combo.set(categories[0])
 
-        # Typ broni (filtrowane przez wybraną kategorię)
-        self.label_weapon_type = ttk.Label(filters_section, text="Typ broni:")
-        self.label_weapon_type.grid(row=2, column=0, padx=(0, 10), pady=5, sticky='w')
+        # Opcje (StatTrak / Souvenir)
+        self.opt_lf = ttk.LabelFrame(self.row1, text="Opcje", style='SearchLF.TLabelframe', padding=(12, 8))
+        self.opt_lf.pack(side='left')
+
+        self.stattrack_var = tk.BooleanVar(value=False)
+        self.souvenir_var = tk.BooleanVar(value=False)
+        self.stattrack_check = ttk.Checkbutton(self.opt_lf, text="StatTrak™", variable=self.stattrack_var, style='SearchCheck.TCheckbutton', command=self._on_stattrak_toggle)
+        self.stattrack_check.pack(anchor='w')
+        self.souvenir_check = ttk.Checkbutton(self.opt_lf, text="Souvenir", variable=self.souvenir_var, style='SearchCheck.TCheckbutton', command=self._on_souvenir_toggle)
+        self.souvenir_check.pack(anchor='w')
+
+        # --- Wiersz 2: Typ przedmiotu (może być ukryty dla niektórych kategorii) ---
+        self.row2 = tk.Frame(form_container, bg='#1e1e1e')
+        self.row2.pack(pady=(0, 24))
+
+        self.type_lf = ttk.LabelFrame(self.row2, text="Typ przedmiotu", style='SearchLF.TLabelframe', padding=(12, 8))
+        self.type_lf.pack()
+
         weapon_list = sorted(list(SKIN_DATA.keys()))
-        # default readonly; for 'Noże' category we'll make it editable and blank
-        self.weapon_combo = ttk.Combobox(filters_section, values=weapon_list, state='readonly')
-        self.weapon_combo.grid(row=2, column=1, sticky='ew', pady=5)
+        self.weapon_combo = ttk.Combobox(self.type_lf, values=weapon_list, state='readonly', width=36, style='Dark.TCombobox')
+        self.weapon_combo.pack()
 
-        # Skin (wyrównany do Typ broni w tym samym wierszu)
-        self.label_skin = ttk.Label(filters_section, text="Skin:")
-        self.label_skin.grid(row=2, column=2, padx=(10, 5), pady=5, sticky='w')
-        self.skin_combo = ttk.Combobox(filters_section, state='disabled')
-        self.skin_combo.grid(row=2, column=3, sticky='ew', pady=5)
-        self.skin_combo.bind("<<ComboboxSelected>>", self.on_skin_select)
+        # --- Wiersz 3: Nazwa + Jakość ---
+        row3 = tk.Frame(form_container, bg='#1e1e1e')
+        row3.pack(pady=(0, 24))
 
-        # Przycisk wyszukiwania po prawej stronie, zasięg na 3 wiersze
-        self.search_button = ttk.Button(filters_section, text="Pobierz i zapisz", command=self.start_search_thread, state='normal', style='Action.TButton')
-        self.search_button.grid(row=0, column=4, rowspan=3, padx=(10, 0), sticky='nsew')
+        self.name_lf = ttk.LabelFrame(row3, text="Nazwa", style='SearchLF.TLabelframe', padding=(12, 8))
+        self.name_lf.pack(side='left', padx=(0, 24))
+        self.skin_combo = ttk.Combobox(self.name_lf, state='disabled', width=28, style='Dark.TCombobox')
+        self.skin_combo.pack()
+
+        self.qual_lf = ttk.LabelFrame(row3, text="Jakość", style='SearchLF.TLabelframe', padding=(12, 8))
+        self.qual_lf.pack(side='left')
+        self.wear_options = ["(Factory New)", "(Minimal Wear)", "(Field-Tested)", "(Well-Worn)", "(Battle-Scarred)", "Brak"]
+        self.wear_combobox = ttk.Combobox(self.qual_lf, values=self.wear_options, state='readonly', width=28, style='Dark.TCombobox')
+        self.wear_combobox.pack()
+        self.wear_combobox.set("(Field-Tested)")
+
+        # --- Przycisk Szukaj ---
+        search_btn_frame = tk.Frame(form_container, bg='#1e1e1e')
+        search_btn_frame.pack(pady=(8, 0))
+
+        self.search_button = tk.Button(
+            search_btn_frame, text="🔍  Szukaj", bg='#6688cc', fg='#ffffff',
+            font=('Segoe UI', 14, 'bold'), relief='flat', cursor='hand2',
+            activebackground='#7799dd', activeforeground='#ffffff', padx=32, pady=10,
+            command=self.start_search_thread
+        )
+        self.search_button.pack()
+
+        # Aliasy starych etykiet (kompatybilność wsteczna)
+        self.label_category = tk.Label(self.frame, text="", bg='#1e1e1e')
+        self.label_weapon_type = tk.Label(self.frame, text="Typ przedmiotu:", bg='#1e1e1e', fg='#88bbff')
+        self.label_skin = tk.Label(self.frame, text="Nazwa:", bg='#1e1e1e', fg='#88bbff')
+        self.label_quality = tk.Label(self.frame, text="Jakość:", bg='#1e1e1e', fg='#88bbff')
+
+        # ===================== DOLNY PASEK (row 2) =====================
+        bottom = tk.Frame(self.frame, bg='#1e1e1e')
+        bottom.grid(row=2, column=0, sticky='sew', pady=(0, 12))
+        bottom.grid_columnconfigure(0, weight=1)
+
+        # Kontener na autouzupełnianie z dropdown
+        auto_frame = tk.Frame(bottom, bg='#1e1e1e')
+        auto_frame.pack()
         
+        self.suggestions_label = tk.Label(auto_frame, text="Autouzupełnienie listy przedmiotów", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 9), cursor='hand2')
+        self.suggestions_label.pack(side='left')
+        
+        self.auto_dropdown_arrow = tk.Label(auto_frame, text="▼", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 7), cursor='hand2')
+        self.auto_dropdown_arrow.pack(side='left', padx=(4, 0))
+        
+        # Menu autouzupełniania (ukryte domyślnie)
+        self.auto_dropdown_menu = None
+        self.auto_dropdown_visible = False
+        
+        # Bindowanie kliknięcia
+        for widget in (self.suggestions_label, self.auto_dropdown_arrow):
+            widget.bind('<Button-1>', self._toggle_auto_dropdown)
+
+        # ===================== UKRYTE ELEMENTY (kompatybilność) =====================
+        # Zachowane jako atrybuty klasy, ale nie wyświetlane
+        self.version_label = tk.Label(self.frame, text="", bg='#1e1e1e')
+        self.status_text = None  # brak widocznego logu – można dodać później w rozsuwanym panelu
+        self.update_btn = None
+        self.backfill_btn = None
+        self.cancel_btn = None
+        self.inline_progress_var = tk.StringVar(value="")
+        self.inline_progress_label = None
+        self.auto_refresh_enabled = tk.BooleanVar(value=False)
+        # Wczytaj zapisane ustawienia interwału z kontrolera
+        saved_min = getattr(self.controller, '_auto_min_s', 600)
+        saved_max = getattr(self.controller, '_auto_max_s', 900)
+        self.auto_from_var = tk.StringVar(value=str(saved_min))
+        self.auto_to_var = tk.StringVar(value=str(saved_max))
+        self.auto_next_var = tk.StringVar(value="")
+        self.force_cycle_btn = None
+        self.auto_refresh_check = None
+        self.auto_from_entry = None
+        self.auto_to_entry = None
+        self.auto_next_label = None
+        self.progress_var = tk.IntVar(value=0)
+        self.progress_bar = None
+
+        # ===================== BINDINGI =====================
         self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
         self.category_combo.bind("<<ComboboxSelected>>", self.on_category_select)
+        self.skin_combo.bind("<<ComboboxSelected>>", self.on_skin_select)
 
-        # Dodatkowy pasek informacyjny (ciemny) pod nagłówkiem
-        # Sekcja dziennika operacji
-        log_section = ttk.LabelFrame(self.frame, text="Dziennik operacji", padding="0")
-        log_section.grid(row=3, column=0, sticky='nsew', pady=(0, 8))
-        log_section.grid_rowconfigure(0, weight=1)
-        log_section.grid_columnconfigure(0, weight=1)
-
-        self.status_text = scrolledtext.ScrolledText(log_section, wrap=tk.WORD, state='disabled', height=12)
-        self.status_text.grid(row=0, column=0, sticky='nsew')
-        try:
-            self.status_text.configure(bg='#111111', fg='#e8e8e8', insertbackground='#ffffff', highlightthickness=0, borderwidth=1)
-        except Exception:
-            pass
-
-        # Kontrolki pobierania sugestii (aktualizacja + anulowanie)
-        suggestions_section = ttk.LabelFrame(self.frame, text="Zarządzanie sugestiami", padding="12 8 12 8")
-        suggestions_section.grid(row=4, column=0, sticky='ew')
-        suggestions_section.grid_columnconfigure(1, weight=1)
-
-        self.update_btn = ttk.Button(suggestions_section, text="Zaktualizuj listę przedmiotów", command=self._update_suggestions, style='Action.TButton')
-        self.update_btn.grid(row=0, column=0, sticky='w')
-
-        self.backfill_btn = ttk.Button(suggestions_section, text="Backfill braków", command=self._backfill_suggestions, style='Action.TButton')
-        self.backfill_btn.grid(row=1, column=0, sticky='w', pady=(4,0))
-
-        self.inline_progress_var = tk.StringVar(value="")
-        self.inline_progress_label = ttk.Label(suggestions_section, textvariable=self.inline_progress_var, anchor='center')
-        self.inline_progress_label.grid(row=0, column=1, sticky='ew', padx=8)
-
-        self.cancel_btn = ttk.Button(suggestions_section, text="Przerwij", command=self._cancel_update, state='disabled', style='Action.TButton')
-        self.cancel_btn.grid(row=0, column=2, padx=(12,0))
-
-        # --- AUTO REFRESH CONFIG ---
-        auto_frame = ttk.LabelFrame(self.frame, text="Auto-odświeżanie", padding="12 8 12 8")
-        auto_frame.grid(row=6, column=0, sticky='ew', pady=(8,0))
-        auto_frame.grid_columnconfigure(7, weight=1)
-        self.auto_refresh_enabled = tk.BooleanVar(value=False)
-        self.auto_refresh_check = ttk.Checkbutton(auto_frame, text="Auto-odświeżanie sugestii", variable=self.auto_refresh_enabled, command=self._on_auto_toggle)
-        self.auto_refresh_check.grid(row=0, column=0, padx=(0,8))
-        ttk.Label(auto_frame, text="Interwał od (s):").grid(row=0, column=1)
-        self.auto_from_var = tk.StringVar(value="600")
-        self.auto_from_entry = ttk.Entry(auto_frame, width=6, textvariable=self.auto_from_var)
-        self.auto_from_entry.grid(row=0, column=2, padx=(4,8))
-        ttk.Label(auto_frame, text="do (s):").grid(row=0, column=3)
-        self.auto_to_var = tk.StringVar(value="900")
-        self.auto_to_entry = ttk.Entry(auto_frame, width=6, textvariable=self.auto_to_var)
-        self.auto_to_entry.grid(row=0, column=4, padx=(4,8))
-        self.auto_next_var = tk.StringVar(value="")
-        self.auto_next_label = ttk.Label(auto_frame, textvariable=self.auto_next_var, foreground='gray')
-        self.auto_next_label.grid(row=0, column=5, padx=(4,0))
-        self.force_cycle_btn = ttk.Button(auto_frame, text="Cykl teraz", command=self._force_auto_cycle, state='disabled', style='Action.TButton')
-
-        # Skrót: Ctrl+Enter uruchamia pobieranie
         try:
             self.frame.bind_all('<Control-Return>', lambda e: self.start_search_thread())
         except Exception:
             pass
-        self.force_cycle_btn.grid(row=0, column=6, padx=(12,0))
-        # Pasek postępu pobierania (ukryty na starcie)
-        self.progress_var = tk.IntVar(value=0)
-        self.progress_bar = ttk.Progressbar(self.frame, orient='horizontal', mode='determinate', maximum=100, variable=self.progress_var)
-        self.progress_bar.grid(row=5, column=0, sticky='ew', pady=(4, 0))
-        self.progress_bar.grid_remove()
-        
-        if not self.controller.all_suggestions:
-            self.log_message("Gotowy do wyszukiwania. (Lista przedmiotów do pobrania przyciskiem).")
 
         # Wypełnij listę broni według wybranej kategorii
         self.on_category_select(None)
@@ -510,6 +572,13 @@ class SearchView:
 
             # Kategoria noży – wyświetl typy z prefiksem '★ '
             if selected_cat in ('Noże', 'Nóż'):
+                # Zmień nazwy LabelFrame'ów
+                try:
+                    self.type_lf.config(text='Typ noża')
+                    self.name_lf.config(text='Nazwa')
+                    self.qual_lf.config(text='Jakość')
+                except Exception:
+                    pass
                 self.label_weapon_type.config(text='Typ noża:')
                 self.label_skin.config(text='Nazwa:')
                 k_types_raw = KNIVES.get('types', [])
@@ -542,7 +611,13 @@ class SearchView:
                 self.souvenir_var.set(False)
                 return
         if selected_cat == 'Rękawice':
-            # Zmienione etykiety
+            # Zmień nazwy LabelFrame'ów
+            try:
+                self.type_lf.config(text='Typ rękawic')
+                self.name_lf.config(text='Nazwa')
+                self.qual_lf.config(text='Jakość')
+            except Exception:
+                pass
             self.label_weapon_type.config(text='Typ rękawic:')
             self.label_skin.config(text='Nazwa:')
             # Typy rękawic i nazwy z suggestions (GLOVES)
@@ -583,6 +658,13 @@ class SearchView:
             self.souvenir_var.set(False)
             return
         if selected_cat == 'Naklejka':
+            # Zmień nazwy LabelFrame'ów
+            try:
+                self.type_lf.config(text='Typ naklejki')
+                self.name_lf.config(text='Nazwa')
+                self.qual_lf.config(text='Event')
+            except Exception:
+                pass
             self.label_weapon_type.config(text='Typ naklejki:')
             self.label_skin.config(text='Nazwa:')
             sticker_types = STICKERS.get('types', ['Esportowa', 'Zwykła'])
@@ -601,6 +683,16 @@ class SearchView:
             return
         if selected_cat == 'Zeus x27':
             # Ukryj pole typu broni; Zeus ma tylko skiny
+            try:
+                self.row2.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.type_lf.config(text='Typ przedmiotu')
+                self.name_lf.config(text='Skin')
+                self.qual_lf.config(text='Jakość')
+            except Exception:
+                pass
             self.label_weapon_type.grid_remove()
             self.weapon_combo.grid_remove()
             # Skórki Zeus z suggestions.txt
@@ -632,6 +724,13 @@ class SearchView:
             self.souvenir_var.set(False)
             return
         if selected_cat == 'Graffiti':
+            # Zmień nazwy LabelFrame'ów
+            try:
+                self.type_lf.config(text='Typ graffiti')
+                self.name_lf.config(text='Nazwa')
+                self.qual_lf.config(text='Event')
+            except Exception:
+                pass
             # Typ graffiti (Esportowe / Zwykłe)
             self.label_weapon_type.config(text='Typ graffiti:')
             self.weapon_combo.config(state='readonly')
@@ -675,6 +774,17 @@ class SearchView:
             self.souvenir_var.set(False)
             return
         if selected_cat == 'Agent':
+            # Ukryj wiersz z typem przedmiotu
+            try:
+                self.row2.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.type_lf.config(text='Typ przedmiotu')
+                self.name_lf.config(text='Agent')
+                self.qual_lf.config(text='Kolekcja')
+            except Exception:
+                pass
             # wear_combobox -> kolekcja, skin_combo -> agent
             self.label_weapon_type.grid_remove()
             self.weapon_combo.grid_remove()
@@ -698,6 +808,18 @@ class SearchView:
             self.souvenir_var.set(False)
             return
         if selected_cat == 'Inne':
+            # Zmień nazwy LabelFrame'ów
+            try:
+                self.type_lf.config(text='Typ przedmiotu')
+                self.name_lf.config(text='Nazwa')
+                self.qual_lf.config(text='Jakość')
+            except Exception:
+                pass
+            # Ukryj pole jakości domyślnie - będzie pokazane tylko jeśli potrzebne
+            try:
+                self.qual_lf.pack_forget()
+            except Exception:
+                pass
             self.label_weapon_type.config(text='Typ przedmiotu:')
             other_types = OTHER_TYPES or []
             self.weapon_combo.config(state='readonly')
@@ -714,6 +836,17 @@ class SearchView:
             self._configure_other_type_ui(self.weapon_combo.get())
             return
         if selected_cat == 'Pojemnik':
+            # Ukryj wiersz z typem przedmiotu
+            try:
+                self.row2.pack_forget()
+            except Exception:
+                pass
+            try:
+                self.type_lf.config(text='Typ przedmiotu')
+                self.name_lf.config(text='Nazwa')
+                self.qual_lf.config(text='Rodzaj')
+            except Exception:
+                pass
             # Ukryj Typ broni; używamy pola "Rodzaj" (wear_combobox) do wyboru podkategorii
             self.label_weapon_type.grid_remove()
             self.weapon_combo.grid_remove()
@@ -906,16 +1039,29 @@ class SearchView:
 
     def _reset_base_ui(self):
         """Przywraca podstawowe etykiety i widoczność dla klasycznej broni."""
-        # Show all labels/combos
+        # Pokaż wiersz z typem przedmiotu (po row1)
+        try:
+            self.row2.pack_forget()
+            self.row2.pack(after=self.row1, pady=(0, 24))
+        except Exception:
+            pass
+        # Pokaż pole Jakość (mogło być ukryte dla kategorii Inne)
+        try:
+            self.qual_lf.pack_forget()
+            self.qual_lf.pack(side='left')
+        except Exception:
+            pass
+        # Resetuj nazwy LabelFrame'ów
+        try:
+            self.type_lf.config(text='Typ przedmiotu')
+            self.name_lf.config(text='Nazwa')
+            self.qual_lf.config(text='Jakość')
+        except Exception:
+            pass
+        # Stare aliasy (kompatybilność)
         self.label_weapon_type.config(text='Typ broni:')
-        self.label_weapon_type.grid()
-        self.weapon_combo.grid()
         self.label_skin.config(text='Skin:')
-        self.label_skin.grid()
-        self.skin_combo.grid()
         self.label_quality.config(text='Jakość:')
-        self.label_quality.grid()
-        self.wear_combobox.grid()
         # Re-enable wear default set
         self.wear_combobox.config(state='readonly')
         self.wear_combobox['values'] = self.wear_options
@@ -928,18 +1074,617 @@ class SearchView:
 
     def update_welcome_label(self):
         # Aktualizuj etykietę powitania
-        self.welcome_label.config(text=f"Witaj, {self.controller.steam_name}")
-        # Pokaż/ukryj komunikat o braku cookie
-        has_cookie = bool(getattr(self.controller, 'login_cookie', None))
+        steam_name = getattr(self.controller, 'steam_name', None) or 'Gość'
         try:
-            if has_cookie:
-                # Ukryj etykietę niezależnie od aktualnego stanu mapowania (ważne przy pierwszym wyświetleniu)
-                self.cookie_mode_label.grid_remove()
-            else:
-                # Pokaż ponownie w tej samej komórce (row=0, col=0)
-                self.cookie_mode_label.grid()
+            self.welcome_label.config(text=f"Witaj,\n{steam_name}")
         except Exception:
             pass
+        
+        is_logged = getattr(self.controller, 'is_logged_in', lambda: False)()
+        
+        # Pokaż/ukryj komunikat o braku cookie – w nowym UI nie ma tego elementu, safe skip
+        has_cookie = bool(getattr(self.controller, 'login_cookie', None))
+        try:
+            if self.cookie_mode_label is not None:
+                if has_cookie:
+                    self.cookie_mode_label.grid_remove()
+                else:
+                    self.cookie_mode_label.grid()
+        except Exception:
+            pass
+        
+        # Wyczyść i odśwież avatar
+        self.avatar_canvas.delete('all')
+        
+        if not is_logged:
+            # Użytkownik wylogowany - pokaż placeholder
+            self.avatar_canvas.create_rectangle(2, 2, 50, 50, outline='#5588cc', width=1, tags='default_frame')
+            self.avatar_canvas.create_text(26, 26, text="steam\nprofile", fill='#888888', font=('Segoe UI', 7), justify='center', tags='placeholder')
+            self._avatar_photo = None
+            self._frame_photo = None
+            return
+        
+        # Użytkownik zalogowany - sprawdź cache lub załaduj
+        cached_avatar = getattr(self.controller, '_cached_avatar_photo', None)
+        cached_frame = getattr(self.controller, '_cached_frame_photo', None)
+        
+        if cached_avatar:
+            # Użyj cache'owanego avatara
+            self.avatar_canvas.create_image(26, 26, image=cached_avatar, tags='avatar')
+            if cached_frame:
+                self.avatar_canvas.create_image(26, 26, image=cached_frame, tags='frame')
+        else:
+            # Brak cache - załaduj asynchronicznie
+            self.avatar_canvas.create_rectangle(2, 2, 50, 50, outline='#5588cc', width=1, tags='default_frame')
+            self.avatar_canvas.create_text(26, 26, text="steam\nprofile", fill='#888888', font=('Segoe UI', 7), justify='center', tags='placeholder')
+            self._load_avatar_async()
+
+    def _load_avatar_async(self):
+        """Ładuje avatar i ramkę Steam w tle."""
+        avatar_url = getattr(self.controller, 'steam_avatar_url', None)
+        frame_url = getattr(self.controller, 'steam_frame_url', None)
+        if avatar_url or frame_url:
+            threading.Thread(target=self._fetch_and_set_avatar, args=(avatar_url, frame_url), daemon=True).start()
+
+    def _fetch_and_set_avatar(self, avatar_url, frame_url=None):
+        """Pobiera obrazek avatara i ramki z URL i ustawia je w UI."""
+        try:
+            import requests
+            from io import BytesIO
+            try:
+                from PIL import Image, ImageTk
+            except ImportError:
+                return  # Brak PIL - zostaw placeholder
+            
+            avatar_img = None
+            frame_img = None
+            
+            # Pobierz avatar
+            if avatar_url:
+                try:
+                    response = requests.get(avatar_url, timeout=10)
+                    if response.status_code == 200:
+                        img_data = BytesIO(response.content)
+                        avatar_img = Image.open(img_data)
+                        avatar_img = avatar_img.resize((46, 46), Image.Resampling.LANCZOS)
+                except Exception:
+                    pass
+            
+            # Pobierz ramkę Steam
+            if frame_url:
+                try:
+                    response = requests.get(frame_url, timeout=10)
+                    if response.status_code == 200:
+                        img_data = BytesIO(response.content)
+                        frame_img = Image.open(img_data)
+                        # Ramki Steam są zwykle większe, skalujemy do 52x52
+                        frame_img = frame_img.resize((52, 52), Image.Resampling.LANCZOS)
+                except Exception:
+                    pass
+            
+            # Ustaw w UI (musi być w wątku głównym)
+            def _set_images():
+                try:
+                    # Sprawdź czy użytkownik nadal jest zalogowany
+                    if not getattr(self.controller, 'is_logged_in', lambda: False)():
+                        return
+                    
+                    # Usuń domyślne elementy
+                    self.avatar_canvas.delete('default_frame')
+                    self.avatar_canvas.delete('placeholder')
+                    self.avatar_canvas.delete('avatar')
+                    self.avatar_canvas.delete('frame')
+                    
+                    # Ustaw avatar
+                    if avatar_img:
+                        self._avatar_photo = ImageTk.PhotoImage(avatar_img)
+                        # Zapisz też w kontrolerze dla innych widoków
+                        self.controller._cached_avatar_photo = self._avatar_photo
+                        self.avatar_canvas.create_image(26, 26, image=self._avatar_photo, tags='avatar')
+                    
+                    # Ustaw ramkę Steam (na wierzchu)
+                    if frame_img:
+                        self._frame_photo = ImageTk.PhotoImage(frame_img)
+                        # Zapisz też w kontrolerze
+                        self.controller._cached_frame_photo = self._frame_photo
+                        self.avatar_canvas.create_image(26, 26, image=self._frame_photo, tags='frame')
+                    elif avatar_img:
+                        # Jeśli nie ma ramki Steam, użyj domyślnej niebieskiej
+                        self.avatar_canvas.create_rectangle(2, 2, 50, 50, outline='#5588cc', width=1, tags='default_frame')
+                except Exception:
+                    pass
+            
+            self.controller.root.after(0, _set_images)
+        except Exception as e:
+            print(f"Błąd ładowania avatara: {e}", file=sys.stderr)
+
+    # ===================== DROPDOWN MENU UŻYTKOWNIKA =====================
+    def _toggle_dropdown_menu(self, event=None):
+        """Pokazuje lub ukrywa menu dropdown."""
+        if self.dropdown_visible:
+            self._hide_dropdown_menu()
+        else:
+            self._show_dropdown_menu()
+
+    def _show_dropdown_menu(self):
+        """Wyświetla menu dropdown pod strzałką."""
+        if self.dropdown_menu:
+            self._hide_dropdown_menu()
+
+        # Utwórz menu jako Toplevel
+        self.dropdown_menu = tk.Toplevel(self.controller.root)
+        self.dropdown_menu.overrideredirect(True)  # Bez ramki okna
+        self.dropdown_menu.configure(bg='#2a2a2a')
+        self.dropdown_menu.attributes('-topmost', True)
+
+        # Pozycja menu - pod strzałką
+        try:
+            x = self.dropdown_arrow.winfo_rootx()
+            y = self.dropdown_arrow.winfo_rooty() + self.dropdown_arrow.winfo_height() + 5
+        except Exception:
+            x, y = 100, 100
+
+        # Ramka menu
+        menu_frame = tk.Frame(self.dropdown_menu, bg='#2a2a2a', highlightbackground='#5588cc', highlightthickness=1)
+        menu_frame.pack(fill='both', expand=True)
+
+        # Aktualna waluta
+        current_currency = getattr(self.controller, 'currency', 'PLN')
+
+        # Opcja: Zmień walutę
+        currency_btn = tk.Label(
+            menu_frame, text=f"💱 Zmień walutę: {current_currency}",
+            bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10),
+            padx=16, pady=8, cursor='hand2', anchor='w'
+        )
+        currency_btn.pack(fill='x')
+        currency_btn.bind('<Enter>', lambda e: currency_btn.config(bg='#3a3a3a'))
+        currency_btn.bind('<Leave>', lambda e: currency_btn.config(bg='#2a2a2a'))
+        currency_btn.bind('<Button-1>', lambda e: self._on_currency_option_click())
+
+        # Separator
+        sep = tk.Frame(menu_frame, bg='#444444', height=1)
+        sep.pack(fill='x', padx=8)
+
+        # Opcja: Wyloguj
+        logout_btn = tk.Label(
+            menu_frame, text="🚪 Wyloguj",
+            bg='#2a2a2a', fg='#ff6666', font=('Segoe UI', 10),
+            padx=16, pady=8, cursor='hand2', anchor='w'
+        )
+        logout_btn.pack(fill='x')
+        logout_btn.bind('<Enter>', lambda e: logout_btn.config(bg='#3a3a3a'))
+        logout_btn.bind('<Leave>', lambda e: logout_btn.config(bg='#2a2a2a'))
+        logout_btn.bind('<Button-1>', lambda e: self._on_logout_click())
+
+        self.dropdown_menu.geometry(f"+{x}+{y}")
+        self.dropdown_visible = True
+
+        # Zamknij menu po kliknięciu poza nim
+        self.controller.root.bind('<Button-1>', self._on_click_outside_dropdown, add='+')
+
+    def _hide_dropdown_menu(self):
+        """Ukrywa menu dropdown."""
+        if self.dropdown_menu:
+            try:
+                self.dropdown_menu.destroy()
+            except Exception:
+                pass
+            self.dropdown_menu = None
+        self.dropdown_visible = False
+        try:
+            self.controller.root.unbind('<Button-1>')
+        except Exception:
+            pass
+
+    def _on_click_outside_dropdown(self, event):
+        """Zamyka dropdown jeśli kliknięto poza nim."""
+        if not self.dropdown_menu:
+            return
+        try:
+            # Sprawdź czy kliknięto w menu
+            widget = event.widget
+            if self.dropdown_menu.winfo_exists():
+                menu_x = self.dropdown_menu.winfo_rootx()
+                menu_y = self.dropdown_menu.winfo_rooty()
+                menu_w = self.dropdown_menu.winfo_width()
+                menu_h = self.dropdown_menu.winfo_height()
+                click_x = event.x_root
+                click_y = event.y_root
+                if not (menu_x <= click_x <= menu_x + menu_w and menu_y <= click_y <= menu_y + menu_h):
+                    # Sprawdź czy nie kliknięto w strzałkę/nazwę (toggle)
+                    arrow_x = self.dropdown_arrow.winfo_rootx()
+                    arrow_y = self.dropdown_arrow.winfo_rooty()
+                    arrow_w = self.dropdown_arrow.winfo_width() + self.welcome_label.winfo_width() + 20
+                    arrow_h = max(self.dropdown_arrow.winfo_height(), self.welcome_label.winfo_height())
+                    if not (arrow_x - 10 <= click_x <= arrow_x + arrow_w and arrow_y <= click_y <= arrow_y + arrow_h):
+                        self._hide_dropdown_menu()
+        except Exception:
+            self._hide_dropdown_menu()
+
+    def _on_currency_option_click(self):
+        """Obsługuje kliknięcie opcji zmiany waluty."""
+        self._hide_dropdown_menu()
+        self._show_currency_modal()
+
+    def _on_logout_click(self):
+        """Obsługuje kliknięcie opcji wylogowania."""
+        self._hide_dropdown_menu()
+        # Wyczyść dane sesji (metoda kontrolera czyści wszystko)
+        self.controller.clear_auth_state()
+        # Zresetuj lokalny avatar canvas do placeholdera
+        try:
+            self.avatar_canvas.delete('all')
+            self.avatar_canvas.create_rectangle(2, 2, 50, 50, outline='#5588cc', width=1, tags='default_frame')
+            self.avatar_canvas.create_text(26, 26, text="steam\nprofile", fill='#888888', font=('Segoe UI', 7), justify='center', tags='placeholder')
+            self._avatar_photo = None
+            self._frame_photo = None
+        except Exception:
+            pass
+        # Przejdź do ekranu logowania (wywoła _refresh_all_headers)
+        self.controller.switch_view('login')
+
+    # ===================== MODAL ZMIANY WALUTY =====================
+    def _show_currency_modal(self):
+        """Wyświetla modal do zmiany waluty."""
+        # Overlay - przyciemnione tło
+        self.currency_overlay = tk.Frame(self.controller.root, bg='black')
+        self.currency_overlay.place(x=0, y=0, relwidth=1, relheight=1)
+        self.currency_overlay.configure(bg='#000000')
+        # Ustawienie przezroczystości przez nakładkę
+        self.currency_overlay.lift()
+
+        # Przyciemnienie (symulowane przez czarny kolor z alpha przez wiele warstw lub stipple)
+        # Tkinter nie obsługuje alpha, więc użyjemy ciemnego koloru
+        overlay_bg = tk.Frame(self.currency_overlay, bg='#1a1a1a')
+        overlay_bg.place(x=0, y=0, relwidth=1, relheight=1)
+        overlay_bg.bind('<Button-1>', lambda e: self._close_currency_modal())
+
+        # Modal - okienko na środku
+        modal = tk.Frame(self.currency_overlay, bg='#2a2a2a', highlightbackground='#5588cc', highlightthickness=2)
+        modal.place(relx=0.5, rely=0.5, anchor='center')
+
+        # Tytuł
+        title = tk.Label(modal, text="Zmień walutę", bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 14, 'bold'))
+        title.pack(pady=(20, 16), padx=40)
+
+        # Aktualna waluta
+        current_currency = getattr(self.controller, 'currency', 'PLN')
+        info_label = tk.Label(modal, text=f"Aktualna waluta: {current_currency}", bg='#2a2a2a', fg='#888888', font=('Segoe UI', 10))
+        info_label.pack(pady=(0, 16))
+
+        # Przyciski walut
+        currencies = [('PLN', 'zł'), ('USD', '$'), ('EUR', '€')]
+        btn_frame = tk.Frame(modal, bg='#2a2a2a')
+        btn_frame.pack(pady=(0, 20))
+
+        for curr, symbol in currencies:
+            is_selected = curr == current_currency
+            btn_bg = '#5588cc' if is_selected else '#3a3a3a'
+            btn_fg = '#ffffff'
+            btn = tk.Label(
+                btn_frame, text=f"{curr} ({symbol})",
+                bg=btn_bg, fg=btn_fg, font=('Segoe UI', 12),
+                padx=20, pady=10, cursor='hand2',
+                relief='flat', borderwidth=0
+            )
+            btn.pack(side='left', padx=8)
+            if not is_selected:
+                btn.bind('<Enter>', lambda e, b=btn: b.config(bg='#4a4a4a'))
+                btn.bind('<Leave>', lambda e, b=btn: b.config(bg='#3a3a3a'))
+            btn.bind('<Button-1>', lambda e, c=curr: self._select_currency(c))
+
+        # Przycisk Anuluj
+        cancel_btn = tk.Label(
+            modal, text="Anuluj",
+            bg='#2a2a2a', fg='#888888', font=('Segoe UI', 10),
+            cursor='hand2'
+        )
+        cancel_btn.pack(pady=(0, 20))
+        cancel_btn.bind('<Enter>', lambda e: cancel_btn.config(fg='#ffffff'))
+        cancel_btn.bind('<Leave>', lambda e: cancel_btn.config(fg='#888888'))
+        cancel_btn.bind('<Button-1>', lambda e: self._close_currency_modal())
+
+        # Zapisz referencję do modala
+        self.currency_modal = modal
+
+    def _close_currency_modal(self):
+        """Zamyka modal zmiany waluty."""
+        try:
+            self.currency_overlay.destroy()
+        except Exception:
+            pass
+        self.currency_overlay = None
+        self.currency_modal = None
+
+    def _select_currency(self, currency):
+        """Wybiera nową walutę i przeładowuje widok."""
+        currency_map = {
+            'PLN': {'code': 6, 'symbol': 'zł'},
+            'USD': {'code': 1, 'symbol': '$'},
+            'EUR': {'code': 3, 'symbol': '€'}
+        }
+        if currency in currency_map:
+            self.controller.currency = currency
+            self.controller.currency_code = currency_map[currency]['code']
+            self.controller.currency_symbol = currency_map[currency]['symbol']
+            self.log_message(f"Waluta zmieniona na: {currency} ({currency_map[currency]['symbol']})")
+
+        self._close_currency_modal()
+        
+        # Przeładuj aktualny widok
+        self.controller.switch_view('search')
+
+    # ===================== DROPDOWN AUTOUZUPEŁNIANIA =====================
+    def _toggle_auto_dropdown(self, event=None):
+        """Pokazuje lub ukrywa menu dropdown autouzupełniania."""
+        if self.auto_dropdown_visible:
+            self._hide_auto_dropdown()
+        else:
+            self._show_auto_dropdown()
+
+    def _show_auto_dropdown(self):
+        """Wyświetla menu dropdown autouzupełniania."""
+        if self.auto_dropdown_menu:
+            self._hide_auto_dropdown()
+
+        # Utwórz menu jako Toplevel
+        self.auto_dropdown_menu = tk.Toplevel(self.controller.root)
+        self.auto_dropdown_menu.overrideredirect(True)
+        self.auto_dropdown_menu.configure(bg='#2a2a2a')
+        self.auto_dropdown_menu.attributes('-topmost', True)
+
+        # Pozycja menu - nad etykietą
+        try:
+            x = self.suggestions_label.winfo_rootx()
+            y = self.suggestions_label.winfo_rooty() - 5
+        except Exception:
+            x, y = 100, 100
+
+        # Ramka menu
+        menu_frame = tk.Frame(self.auto_dropdown_menu, bg='#2a2a2a', highlightbackground='#5588cc', highlightthickness=1)
+        menu_frame.pack(fill='both', expand=True)
+
+        # Opcja: Ustawienia interwału
+        interval_btn = tk.Label(
+            menu_frame, text="⏱ Ustawienia interwału",
+            bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10),
+            padx=16, pady=8, cursor='hand2', anchor='w'
+        )
+        interval_btn.pack(fill='x')
+        interval_btn.bind('<Enter>', lambda e: interval_btn.config(bg='#3a3a3a'))
+        interval_btn.bind('<Leave>', lambda e: interval_btn.config(bg='#2a2a2a'))
+        interval_btn.bind('<Button-1>', lambda e: self._show_interval_modal())
+
+        # Separator
+        sep1 = tk.Frame(menu_frame, bg='#444444', height=1)
+        sep1.pack(fill='x', padx=8)
+
+        # Opcja: Pobierz teraz (uruchamia automatyczne pobieranie)
+        refresh_btn = tk.Label(
+            menu_frame, text="🔄 Pobierz teraz",
+            bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10),
+            padx=16, pady=8, cursor='hand2', anchor='w'
+        )
+        refresh_btn.pack(fill='x')
+        refresh_btn.bind('<Enter>', lambda e: refresh_btn.config(bg='#3a3a3a'))
+        refresh_btn.bind('<Leave>', lambda e: refresh_btn.config(bg='#2a2a2a'))
+        refresh_btn.bind('<Button-1>', lambda e: self._start_auto_refresh_now())
+
+        # Separator
+        sep2 = tk.Frame(menu_frame, bg='#444444', height=1)
+        sep2.pack(fill='x', padx=8)
+
+        # Info o statusie
+        is_auto_enabled = self.auto_refresh_enabled.get()
+        status_text = "🟢 Włączone" if is_auto_enabled else "🔴 Wyłączone"
+        status_label = tk.Label(
+            menu_frame, text=f"Status: {status_text}",
+            bg='#2a2a2a', fg='#888888', font=('Segoe UI', 9),
+            padx=16, pady=6, anchor='w'
+        )
+        status_label.pack(fill='x')
+
+        # Oblicz pozycję (nad przyciskiem)
+        self.auto_dropdown_menu.update_idletasks()
+        menu_height = self.auto_dropdown_menu.winfo_reqheight()
+        y = y - menu_height
+
+        self.auto_dropdown_menu.geometry(f"+{x}+{y}")
+        self.auto_dropdown_visible = True
+
+        # Zamknij menu po kliknięciu poza nim
+        self.controller.root.bind('<Button-1>', self._on_click_outside_auto_dropdown, add='+')
+
+    def _hide_auto_dropdown(self):
+        """Ukrywa menu dropdown autouzupełniania."""
+        if self.auto_dropdown_menu:
+            try:
+                self.auto_dropdown_menu.destroy()
+            except Exception:
+                pass
+            self.auto_dropdown_menu = None
+        self.auto_dropdown_visible = False
+
+    def _on_click_outside_auto_dropdown(self, event):
+        """Zamyka dropdown autouzupełniania jeśli kliknięto poza nim."""
+        if not self.auto_dropdown_menu:
+            return
+        try:
+            if self.auto_dropdown_menu.winfo_exists():
+                menu_x = self.auto_dropdown_menu.winfo_rootx()
+                menu_y = self.auto_dropdown_menu.winfo_rooty()
+                menu_w = self.auto_dropdown_menu.winfo_width()
+                menu_h = self.auto_dropdown_menu.winfo_height()
+                click_x = event.x_root
+                click_y = event.y_root
+                if not (menu_x <= click_x <= menu_x + menu_w and menu_y <= click_y <= menu_y + menu_h):
+                    # Sprawdź czy nie kliknięto w strzałkę/etykietę (toggle)
+                    label_x = self.suggestions_label.winfo_rootx()
+                    label_y = self.suggestions_label.winfo_rooty()
+                    label_w = self.suggestions_label.winfo_width() + self.auto_dropdown_arrow.winfo_width() + 10
+                    label_h = self.suggestions_label.winfo_height()
+                    if not (label_x <= click_x <= label_x + label_w and label_y <= click_y <= label_y + label_h):
+                        self._hide_auto_dropdown()
+        except Exception:
+            self._hide_auto_dropdown()
+
+    def _toggle_auto_refresh(self):
+        """Włącza/wyłącza automatyczne odświeżanie."""
+        self._hide_auto_dropdown()
+        current = self.auto_refresh_enabled.get()
+        self.auto_refresh_enabled.set(not current)
+        if not current:
+            self.log_message("Automatyczne uzupełnianie WŁĄCZONE")
+            self._schedule_auto_refresh()
+        else:
+            self.log_message("Automatyczne uzupełnianie WYŁĄCZONE")
+            self._cancel_auto_refresh()
+
+    def _start_auto_refresh_now(self):
+        """Uruchamia automatyczne pobieranie natychmiast."""
+        self._hide_auto_dropdown()
+        # Włącz automatyczne odświeżanie jeśli nie jest włączone
+        if not self.auto_refresh_enabled.get():
+            self.auto_refresh_enabled.set(True)
+        self.log_message("Rozpoczynam pobieranie sugestii...")
+        # Anuluj poprzednie zaplanowane i rozpocznij od razu
+        self._cancel_auto_refresh()
+        self._update_suggestions()
+        # Zaplanuj następne pobranie
+        self._schedule_auto_refresh()
+
+    def _manual_refresh_suggestions(self):
+        """Ręczne jednorazowe pobranie sugestii."""
+        self._hide_auto_dropdown()
+        self._update_suggestions()
+
+    def _show_interval_modal(self):
+        """Wyświetla modal do ustawienia interwału."""
+        self._hide_auto_dropdown()
+        
+        # Overlay - przyciemnione tło
+        self.interval_overlay = tk.Frame(self.controller.root, bg='black')
+        self.interval_overlay.place(x=0, y=0, relwidth=1, relheight=1)
+        self.interval_overlay.configure(bg='#000000')
+        self.interval_overlay.lift()
+
+        overlay_bg = tk.Frame(self.interval_overlay, bg='#1a1a1a')
+        overlay_bg.place(x=0, y=0, relwidth=1, relheight=1)
+        overlay_bg.bind('<Button-1>', lambda e: self._close_interval_modal())
+
+        # Modal
+        modal = tk.Frame(self.interval_overlay, bg='#2a2a2a', highlightbackground='#5588cc', highlightthickness=2)
+        modal.place(relx=0.5, rely=0.5, anchor='center')
+
+        # Tytuł
+        title = tk.Label(modal, text="Ustawienia interwału", bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 14, 'bold'))
+        title.pack(pady=(20, 16), padx=40)
+
+        # Opis
+        desc = tk.Label(modal, text="Interwał losowy między pobieraniami (w sekundach):", bg='#2a2a2a', fg='#888888', font=('Segoe UI', 10))
+        desc.pack(pady=(0, 12))
+
+        # Pola wejściowe
+        input_frame = tk.Frame(modal, bg='#2a2a2a')
+        input_frame.pack(pady=(0, 16))
+
+        tk.Label(input_frame, text="Od:", bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10)).pack(side='left', padx=(0, 8))
+        self.interval_from_entry = ttk.Entry(input_frame, width=8)
+        self.interval_from_entry.pack(side='left')
+        self.interval_from_entry.insert(0, self.auto_from_var.get())
+
+        tk.Label(input_frame, text="Do:", bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10)).pack(side='left', padx=(16, 8))
+        self.interval_to_entry = ttk.Entry(input_frame, width=8)
+        self.interval_to_entry.pack(side='left')
+        self.interval_to_entry.insert(0, self.auto_to_var.get())
+
+        tk.Label(input_frame, text="sek.", bg='#2a2a2a', fg='#888888', font=('Segoe UI', 10)).pack(side='left', padx=(8, 0))
+
+        # Przyciski
+        btn_frame = tk.Frame(modal, bg='#2a2a2a')
+        btn_frame.pack(pady=(0, 20))
+
+        save_btn = tk.Label(
+            btn_frame, text="Zapisz",
+            bg='#5588cc', fg='#ffffff', font=('Segoe UI', 11),
+            padx=24, pady=8, cursor='hand2'
+        )
+        save_btn.pack(side='left', padx=8)
+        save_btn.bind('<Enter>', lambda e: save_btn.config(bg='#6699dd'))
+        save_btn.bind('<Leave>', lambda e: save_btn.config(bg='#5588cc'))
+        save_btn.bind('<Button-1>', lambda e: self._save_interval_settings())
+
+        cancel_btn = tk.Label(
+            btn_frame, text="Anuluj",
+            bg='#3a3a3a', fg='#ffffff', font=('Segoe UI', 11),
+            padx=24, pady=8, cursor='hand2'
+        )
+        cancel_btn.pack(side='left', padx=8)
+        cancel_btn.bind('<Enter>', lambda e: cancel_btn.config(bg='#4a4a4a'))
+        cancel_btn.bind('<Leave>', lambda e: cancel_btn.config(bg='#3a3a3a'))
+        cancel_btn.bind('<Button-1>', lambda e: self._close_interval_modal())
+
+        self.interval_modal = modal
+
+    def _close_interval_modal(self):
+        """Zamyka modal ustawień interwału."""
+        try:
+            self.interval_overlay.destroy()
+        except Exception:
+            pass
+        self.interval_overlay = None
+        self.interval_modal = None
+
+    def _save_interval_settings(self):
+        """Zapisuje ustawienia interwału."""
+        try:
+            from_val = int(self.interval_from_entry.get())
+            to_val = int(self.interval_to_entry.get())
+            if from_val > 0 and to_val > 0 and to_val >= from_val:
+                self.auto_from_var.set(str(from_val))
+                self.auto_to_var.set(str(to_val))
+                # Zapisz do pliku ustawień
+                if hasattr(self.controller, 'persist_interval_settings'):
+                    self.controller.persist_interval_settings(from_val, to_val)
+                self.log_message(f"Interwał ustawiony: {from_val}-{to_val} sekund")
+            else:
+                self.log_message("Błąd: nieprawidłowe wartości interwału")
+        except ValueError:
+            self.log_message("Błąd: wprowadź liczby całkowite")
+        self._close_interval_modal()
+
+    def _schedule_auto_refresh(self):
+        """Planuje następne automatyczne odświeżenie."""
+        if not self.auto_refresh_enabled.get():
+            return
+        try:
+            import random
+            from_sec = int(self.auto_from_var.get())
+            to_sec = int(self.auto_to_var.get())
+            delay = random.randint(from_sec, to_sec)
+            self._auto_refresh_job = self.controller.root.after(delay * 1000, self._auto_refresh_cycle)
+            self.log_message(f"Następne automatyczne pobranie za {delay} sekund")
+        except Exception as e:
+            self.log_message(f"Błąd planowania: {e}")
+
+    def _cancel_auto_refresh(self):
+        """Anuluje zaplanowane automatyczne odświeżenie."""
+        if hasattr(self, '_auto_refresh_job') and self._auto_refresh_job:
+            try:
+                self.controller.root.after_cancel(self._auto_refresh_job)
+            except Exception:
+                pass
+            self._auto_refresh_job = None
+
+    def _auto_refresh_cycle(self):
+        """Wykonuje cykl automatycznego odświeżania."""
+        if not self.auto_refresh_enabled.get():
+            return
+        self.log_message("Automatyczne pobieranie sugestii...")
+        self._update_suggestions()
+        # Zaplanuj następny cykl
+        self._schedule_auto_refresh()
 
     def set_suggestions(self, suggestions):
         """Ustawia listę sugestii po pobraniu; aktualizuje etykietę i log."""
@@ -1004,19 +1749,23 @@ class SearchView:
     # API wywoływane przez kontroler: ustaw/zdjęcie blokady przycisku
     def set_update_button_state(self, active: bool):
         try:
-            self.update_btn.config(state=('normal' if active else 'disabled'))
+            if self.update_btn is not None:
+                self.update_btn.config(state=('normal' if active else 'disabled'))
         except Exception:
             pass
 
     # API wywoływane przez kontroler: włącz/wyłącz przycisk anulowania
     def set_cancel_button_state(self, active: bool):
         try:
-            self.cancel_btn.config(state=('normal' if active else 'disabled'))
+            if self.cancel_btn is not None:
+                self.cancel_btn.config(state=('normal' if active else 'disabled'))
         except Exception:
             pass
 
     # API wywoływane przez kontroler: aktualizacja paska postępu
     def update_progress_bar(self, current: int, total: int, retries: int, eta: int = -1):
+        if self.progress_bar is None:
+            return  # brak widocznego paska w nowym UI
         try:
             if total and total > 0:
                 # Pasek postępu pokazuje realny X/TOTAL (maksimum = total, wartość = current)
@@ -1061,6 +1810,8 @@ class SearchView:
             pass
 
     def show_progress_bar(self, visible: bool):
+        if self.progress_bar is None:
+            return
         try:
             if visible:
                 self.progress_bar.grid()
@@ -1096,7 +1847,11 @@ class SearchView:
     # ------------------------------------------------------------------
     def _on_auto_toggle(self):
         enabled = self.auto_refresh_enabled.get()
-        self.force_cycle_btn.config(state=('normal' if enabled else 'disabled'))
+        if self.force_cycle_btn is not None:
+            try:
+                self.force_cycle_btn.config(state=('normal' if enabled else 'disabled'))
+            except Exception:
+                pass
         if hasattr(self.controller, 'set_auto_refresh_config'):
             try:
                 from_val = int(self.auto_from_var.get())
@@ -1130,7 +1885,6 @@ class SearchView:
         if self.auto_refresh_enabled.get():
             self.log_message("Wymuszony cykl auto-odświeżania sugestii.")
             self._update_suggestions()
-
     def _go_back_to_login(self):
         """Przełącza do ekranu logowania z zachowaniem obecnego cookie w polu, umożliwiając jego zmianę."""
         try:
@@ -1152,10 +1906,17 @@ class SearchView:
             print(f"Błąd powrotu do ekranu logowania: {e}", file=sys.stderr)
 
     def log_message(self, text):
-        self.status_text.config(state='normal')
-        self.status_text.insert(tk.END, text + "\n")
-        self.status_text.see(tk.END)
-        self.status_text.config(state='disabled')
+        """Loguje komunikat – jeśli status_text istnieje wyświetla tam, inaczej print."""
+        if self.status_text is not None:
+            try:
+                self.status_text.config(state='normal')
+                self.status_text.insert(tk.END, text + "\n")
+                self.status_text.see(tk.END)
+                self.status_text.config(state='disabled')
+                return
+            except Exception:
+                pass
+        print(f"[SearchView] {text}")
 
     def start_search_thread(self):
         # Zbuduj nazwę przedmiotu na podstawie wybranej kategorii za pomocą mapowanych builderów
@@ -1453,27 +2214,35 @@ class SearchView:
         self._configure_other_type_ui(other_type)
 
     def _configure_other_type_ui(self, other_type: str):
+        """Konfiguruje UI dla kategorii 'Inne' - używa LabelFrame'ów z pack()."""
         try:
             try:
                 self.skin_combo.unbind("<<ComboboxSelected>>")
             except Exception:
                 pass
-            self.label_skin.grid_remove()
-            self.skin_combo.grid_remove()
-            self.label_quality.grid_remove()
-            self.wear_combobox.grid_remove()
+            # Ukryj pole Jakość domyślnie dla kategorii Inne
+            try:
+                self.qual_lf.pack_forget()
+            except Exception:
+                pass
+            # Zresetuj combobox'y
             self.skin_combo.config(state='disabled')
             self.skin_combo['values'] = []
             self.skin_combo.set('')
+            self.wear_combobox.config(state='disabled')
+            self.wear_combobox['values'] = []
+            self.wear_combobox.set('')
             self.stattrack_check.config(state='disabled')
             self.stattrack_var.set(False)
             self.souvenir_check.config(state='disabled')
             self.souvenir_var.set(False)
 
             if other_type == 'Zestaw utworów':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                # Nazwa zestawu
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 kits = MUSIC_KITS or []
                 self.skin_combo.config(state='readonly' if kits else 'disabled')
                 self.skin_combo['values'] = kits
@@ -1486,9 +2255,10 @@ class SearchView:
                 return
 
             if other_type == 'Klucz':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 keys = KEY_ITEMS or []
                 self.skin_combo.config(state='readonly' if keys else 'disabled')
                 self.skin_combo['values'] = keys
@@ -1499,9 +2269,10 @@ class SearchView:
                 return
 
             if other_type == 'Przywieszka':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 charms = CHARM_ITEMS or []
                 self.skin_combo.config(state='readonly' if charms else 'disabled')
                 self.skin_combo['values'] = charms
@@ -1512,9 +2283,12 @@ class SearchView:
                 return
 
             if other_type == 'Przepustka':
-                self.label_quality.config(text='Typ przepustki:')
-                self.label_quality.grid()
-                self.wear_combobox.grid()
+                # Pokaż pole Jakość jako Typ przepustki
+                try:
+                    self.qual_lf.config(text='Typ przepustki')
+                    self.qual_lf.pack(side='left')
+                except Exception:
+                    pass
                 pass_types = ['Przepustka widza', 'Przepustka operacji']
                 self.wear_combobox.config(state='readonly')
                 self.wear_combobox['values'] = pass_types
@@ -1523,17 +2297,19 @@ class SearchView:
                     self.wear_combobox.set(selected_type)
                 else:
                     self.wear_combobox.set('')
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 self._set_pass_names(selected_type)
                 self.wear_combobox.bind("<<ComboboxSelected>>", self._on_pass_type_select)
                 return
 
             if other_type == 'Przedmiot kolekcjonerski':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 pins = COLLECTIBLE_PINS or []
                 self.skin_combo.config(state='readonly' if pins else 'disabled')
                 self.skin_combo['values'] = pins
@@ -1544,9 +2320,10 @@ class SearchView:
                 return
 
             if other_type == 'Prezent':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 gifts = GIFT_ITEMS or []
                 self.skin_combo.config(state='readonly' if gifts else 'disabled')
                 self.skin_combo['values'] = gifts
@@ -1557,9 +2334,10 @@ class SearchView:
                 return
 
             if other_type == 'Naszywka':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 patches = PATCH_ITEMS or []
                 self.skin_combo.config(state='readonly' if patches else 'disabled')
                 self.skin_combo['values'] = patches
@@ -1570,9 +2348,10 @@ class SearchView:
                 return
 
             if other_type == 'Narzędzie':
-                self.label_skin.config(text='Nazwa:')
-                self.label_skin.grid()
-                self.skin_combo.grid()
+                try:
+                    self.name_lf.config(text='Nazwa')
+                except Exception:
+                    pass
                 tools = TOOL_ITEMS or []
                 self.skin_combo.config(state='readonly' if tools else 'disabled')
                 self.skin_combo['values'] = tools

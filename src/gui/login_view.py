@@ -507,19 +507,67 @@ class LoginView:
                 self._async_ui(lambda: self._set_status("Zalogowano. Cookie pobrane.", 'green'))
                 self.controller.login_cookie = cookie_value
 
-                # Spróbuj pobrać nazwę użytkownika po zalogowaniu
+                # Spróbuj pobrać nazwę użytkownika i avatar po zalogowaniu
                 user_name = None
+                avatar_url = None
                 try:
                     from selenium.webdriver.common.by import By
                     from selenium.webdriver.support.ui import WebDriverWait
                     from selenium.webdriver.support import expected_conditions as EC
-                    # 1) Profil na community
+                    # 1) Profil na community - pobierz nazwę, avatar i ramkę
                     try:
                         driver.get("https://steamcommunity.com/my/")
                         el = WebDriverWait(driver, 10).until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, ".actual_persona_name"))
                         )
                         user_name = (el.text or "").strip()
+                        
+                        # Pobierz avatar i ramkę
+                        avatar_url = None
+                        frame_url = None
+                        
+                        try:
+                            # Ramka jest w kontenerze .playerAvatarAutoSizeInner
+                            frame_url = driver.execute_script("""
+                                var container = document.querySelector('.playerAvatarAutoSizeInner');
+                                if (container) {
+                                    var imgs = container.querySelectorAll('img');
+                                    for (var i = 0; i < imgs.length; i++) {
+                                        if (imgs[i].src) {
+                                            return imgs[i].src;
+                                        }
+                                    }
+                                }
+                                return null;
+                            """)
+                            
+                            # Avatar jest w osobnym obrazku na stronie (domena avatars.*)
+                            avatar_url = driver.execute_script("""
+                                var imgs = document.querySelectorAll('img');
+                                for (var i = 0; i < imgs.length; i++) {
+                                    var src = imgs[i].src;
+                                    if (src && src.indexOf('avatars.') !== -1 && src.indexOf('_full') !== -1) {
+                                        return src;
+                                    }
+                                }
+                                // Fallback - szukaj medium
+                                for (var i = 0; i < imgs.length; i++) {
+                                    var src = imgs[i].src;
+                                    if (src && src.indexOf('avatars.') !== -1) {
+                                        return src;
+                                    }
+                                }
+                                return null;
+                            """)
+                            
+                            # Zamień na pełny rozmiar (medium -> full)
+                            if avatar_url and "_medium" in avatar_url:
+                                avatar_url = avatar_url.replace("_medium", "_full")
+                            
+                            print(f"DEBUG - Avatar URL: {avatar_url}")
+                            print(f"DEBUG - Frame URL: {frame_url}")
+                        except Exception as e:
+                            print(f"Błąd pobierania avatara: {e}")
                     except Exception:
                         user_name = None
                     # 2) Fallback: strona sklepu (górny pulldown)
@@ -539,6 +587,11 @@ class LoginView:
                     self.controller.steam_name = user_name
                 else:
                     self.controller.steam_name = "Użytkowniku Steam"
+                
+                # Zapisz URL avatara i ramki
+                self.controller.steam_avatar_url = avatar_url
+                self.controller.steam_frame_url = frame_url
+                
                 # Zamknij przeglądarkę
                 try:
                     driver.quit()
