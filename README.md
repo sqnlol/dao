@@ -17,8 +17,7 @@ Głównym celem projektu jest dostarczenie użytkownikowi narzędzia, które:
 - [Krótki opis](#krótki-opis-projektu)
 - [Uruchomienie (Quick Start)](#uruchomienie-quick-start)
 - [Struktura plików](#struktura-plików)
-- [Architektura i dokumentacja techniczna](#architektura-i-dokumentacja-techniczna)
-- [Format danych (Listings)](#format-danych-listings)
+- [Dokumentacja techniczna](#dokumentacja-techniczna)
 - [Najczęstsze problemy](#najczęstsze-problemy)
 - [Historia zmian (Changelog)](#historia-zmian-changelog)
 
@@ -36,145 +35,50 @@ Głównym celem projektu jest dostarczenie użytkownikowi narzędzia, które:
 
 ## Struktura Plików 
 
-Projekt jest zorganizowany modularnie, oddzielając logikę GUI (Views), Kontroler oraz warstwy dostępu do Danych (API i Baza Danych).
-
 ```
 CS2 Skin Analyzer/
 ├── src/ 
 │   ├── gui/ 
-│   │   ├── init.py # Definicja pakietu i importy klas 
-│   │   ├── app.py # Główny Kontroler Aplikacji (App Controller) 
-│   │   ├── login_view.py # Widok Wprowadzania Cookie 
-│   │   ├── search_view.py # Widok Wyszukiwania Przedmiotu 
-│   │   └── results_view.py # Widok Wyświetlania Wyników i Historii 
-│   ├── database.py # Moduł obsługi bazy danych SQLite 
-│   ├── steam_market.py # Moduł komunikacji z API Rynku Steam 
-│   └── main.py # Punkt wejścia aplikacji 
-├── .gitignore # Plik ignorowanych plików dla Git (m.in. steam_market.db) 
-├── requirements.txt # Wymagane zależności Pythona (np. requests) 
-└── README.md # Dokumentacja projektu
+│   │   ├── app.py           # Główny Kontroler Aplikacji
+│   │   ├── login_view.py    # Widok Logowania
+│   │   ├── search_view.py   # Widok Wyszukiwania
+│   │   └── results_view.py  # Widok Wyników
+│   ├── database.py          # Obsługa bazy SQLite
+│   ├── steam_market.py      # Komunikacja z API Steam
+│   └── main.py              # Punkt wejścia aplikacji
+├── doc/
+│   └── DOKUMENTACJA_TECHNICZNA.md  # Pełna dokumentacja techniczna
+├── requirements.txt         # Zależności Pythona
+└── README.md                # Ten plik
 ```
 
 ***
 
-## Architektura i dokumentacja techniczna
+## Dokumentacja Techniczna
 
-### Warstwa GUI
-| Plik | Rola | Kluczowe Elementy |
-| :--- | :--- | :--- |
-| `login_view.py` | Logowanie (ręczne i automatyczne) i zapis cookie `steamLoginSecure`. | Pole cookie; Selenium (Edge/Chrome) do logowania i automatycznego pobrania cookie; pobieranie nazwy konta; statusy. |
-| `search_view.py` | Wybór przedmiotu i uruchomienie pobierania. | Filtry (StatTrak™, wear), taksonomia (w tym noże i "Vanilla"); nagłówek z powitaniem i trybem cookie; autouzupełnianie on-demand z postępem/anulowaniem; logi. |
-| `results_view.py` | Prezentacja wyników: wykres, oferty, historia, obrazek. | Interaktywny hover (dymek + zielona kropka); zakresy czasu; paginacja z cache/prefetch; overlay podczas ładowania; sortowalna historia; sekcja obrazka z LRU cache. |
-| `app.py` | Kontroler, stan sesji, ikony i pętla kolejki. | Ustawienie ikon PNG/ICO; `switch_view`; `process_queue` (obsługa log/progress/error/success); integracja z pobieraniem sugestii. |
+Szczegółowa dokumentacja architektury, modułów, API i modelu danych dostępna jest w:
 
-#### Szczegółowe funkcje GUI
+📄 **[doc/DOKUMENTACJA_TECHNICZNA.md](doc/DOKUMENTACJA_TECHNICZNA.md)**
 
-- `login_view.py`
-    - Ręczne podanie cookie `steamLoginSecure` lub start automatycznego logowania przez przeglądarkę (Selenium: Edge → Chrome fallback, wyciszone logi).
-    - Po zalogowaniu automatyczne wykrycie cookie i zapis do kontrolera; pobranie nazwy konta (community/store) i przejście do wyszukiwania.
-    - Wyśrodkowany nagłówek z dużym logo i tytułem; komunikaty statusu (kolory: gray/orange/green/red).
+Dokumentacja zawiera:
+- Opis architektury MVC z diagramem
+- Szczegółowy opis wszystkich modułów i funkcji
+- Model danych i schemat bazy SQLite
+- Komunikację z API Steam Market
+- Informacje o bezpieczeństwie i stabilności
 
-- `search_view.py`
-    - Nagłówek: "Witaj, <nazwa>", przycisk Wyloguj, etykieta "Brak Cookie  - funkcjonalność ograniczona" (dynamicznie ukrywana/pokazywana).
-    - Taksonomia: kategorie broni (w tym "Snajperskie"), obsługa noży ze znakiem "|" i wariantem "Vanilla" (bez separatora i wear), MP7.
-    - Filtry: StatTrak™, wear (włączane/wyłączane zależnie od typu/skin).
-    - Autouzupełnianie on-demand: przycisk aktualizacji, pasek postępu z ETA, etykieta inline, możliwość anulowania; zapis do `src/suggestions.txt`.
-    - Logi operacyjne w dolnym panelu; wątki do pobierania danych; przekazanie wyników przez kolejkę do kontrolera.
-
-- `results_view.py`
-    - Wykres: zakresy "Tydzień/Miesiąc/Ogółem"; interaktywny hover z dymkiem (data+price), auto-flip przy krawędziach i zielona kropka podświetlająca punkt.
-    - Oferty: paginacja 10/strona, cache stron, prefetch kolejnej, stały kontener z półprzezroczystym overlayem podczas ładowania.
-    - Podsumowanie: najniższa i najwyższa historyczna cena (z datą).
-    - Historia: rozwijana tabela, sortowanie po Cenie i Dacie (klik w nagłówek) z ikonami kierunku i domyślnie najnowszymi na górze.
-    - Obrazek przedmiotu: async pobieranie, skalowanie, LRU cache w pamięci (fallback: placeholder).
-
-- `app.py`
-    - Stan sesji: `login_cookie`, `steam_name`.
-    - Ikony aplikacji: `iconphoto` (PNG) i generowanie wielorozmiarowego `.ico` + `iconbitmap` (Windows).
-    - Pętla `process_queue`: odbiór komunikatów z wątków (log/progress/error/success) i delegacja do widoków; wstrzyknięcie `image_url` do `listings_data`.
-    - Obsługa pobierania autouzupełniania (start/aktualizacja/anulowanie) i przekazanie listy do `search_view.set_suggestions`.
-
-### Warstwa Backend / API
-| Moduł | Funkcja | Szczegóły |
-| :--- | :--- | :--- |
-| `steam_market.get_price_history` | Pobieranie historii cen. | Wymaga `steamLoginSecure`; zwraca listę rekordów: `sale_timestamp`, `sale_date_str`, `price`, `sales_count`. |
-| `steam_market.get_market_listings` | Pobieranie pakietu ofert + metryki. | Parsowanie JSON (fallback HTML); `lowest_price_float`, `total_count`, `listings` z polską lokalizacją (country=PL, language=polish, currency=6). |
-| `steam_market.get_market_listings_page` | Stronicowanie on-demand. | Paginacja start/count; spójna z GUI cache/prefetch; aktualizuje `total_count` i ceny min. |
-| `steam_market.parse_market_name` | Standaryzacja nazwy rynku. | Typ, nazwa bazowa, wear; obsługa StatTrak™ i formatu noży (gwiazdka, Vanilla bez wear). |
-| `steam_market.fetch_all_csgo_items` | Pełna lista pozycji dla autouzupełniania. | Zapis do `src/suggestions.txt`; tryb wznawiania, pliki postępu, callback z komunikatami `PROGRESS`, obsługa anulowania. |
-| `steam_market.get_item_image_url` | URL obrazka dla pozycji. | Używany do asynchronicznego pobrania miniatury w `ResultsView`. |
-
-#### Zasady i stabilność API
-- Nagłówki przeglądarkowe i stały `User-Agent` wymagane dla spójności odpowiedzi Steam.
-- Lokalizacja wymuszona: `country='PL'`, `language='polish'`, `currency=6` (PLN).
-- Ponawianie przy 429/503: exponential backoff + jitter; logowanie metryk (strony, retry).
-- Historia cen zwraca `None` przy braku/wygaśnięciu cookie  - GUI prezentuje komunikat zamiast wykrzaczać wykres.
-
-### Warstwa Danych
-| Moduł | Funkcja | Szczegóły |
-| :--- | :--- | :--- |
-| `database.init_db` | Inicjalizacja schematu. | Tabela `sales` + unikaty. |
-| `database.add_sales` | Dodanie rekordów. | Ignorowanie duplikatów `IntegrityError`. |
-| `database.get_sales_for_item` | Odczyt danych historycznych. | Sortowanie chronologiczne. |
-
-### Kontrakty komunikatów i kolejki
-- Wątki robocze przekazują do kontrolera słowniki o kluczu `status` ∈ {`log`, `error`, `success`, `progress`}.
-- `success` musi zawierać: `item_name`, `history_data`, `listings_data` (opcjonalnie `image_url`).
-- `progress`: pole `progress` ze strukturą `{ current, total, retries, eta }` (sekundy); GUI aktualizuje pasek i etykietę postępu.
-- Kontroler (`app.py`) dystrybuuje komunikaty do widoków, w tym wstrzykuje `image_url` do `listings_data` przed przełączeniem na Results.
-
-### Ikony i branding
-- Ikona PNG ustawiana przez `iconphoto`; generowanie wielorozmiarowego `.ico` i ustawienie `iconbitmap` (Windows taskbar).
-- LoginView: duże logo + tytuł, wyśrodkowane; SearchView: nagłówek z powitaniem i statusem cookie.
-
-### Mechanizmy Wydajności / Stabilności
-* Exponential backoff + jitter dla kodów 429/503.
-* Prefetch następnej strony ofert (thread + log).
-* Cache stron per przedmiot (reset przy zmianie itemu).
-* Overlay przy wczytywaniu ofert (Canvas + stipple).
-
-### Kluczowe pliki i role (szczegóły)
-* `main.py` - inicjalizacja aplikacji: sprawdzenie zależności (`requests`), `database.init_db()`, start `tkinter` i kontrolera `MarketApp`.
-* `src/gui/app.py` - kontroler i stan sesji (`login_cookie`), przełączanie widoków, pętla `process_queue` na komunikaty z wątków.
-* `src/gui/login_view.py` - input i zapis `steamLoginSecure`.
-* `src/gui/search_view.py` - UI wyszukiwania + worker `_search_worker` (pobrania, zapis do DB, publikacja wyników do kolejki).
-* `src/gui/results_view.py` - prezentacja wyników (tabela ofert z paginacją, wykres, historia), cache i prefetch stron.
-
-### Wymagane biblioteki
-
-| Biblioteka | Cel |
-| :--- | :--- |
-| `tkinter` / `tkinter.ttk` | Budowa interfejsu graficznego (GUI) dla platformy desktopowej. `ttk` zapewnia nowoczesne widżety. |
-| `requests` | Wykonywanie zapytań HTTP do zewnętrznych zasobów (API Rynku Steam). |
-| `sqlite3` | Obsługa wbudowanej, lokalnej bazy danych do przechowywania historii cen. |
-| `threading` | Uruchamianie długotrwałych operacji sieciowych w osobnym wątku, aby aplikacja GUI pozostawała responsywna. |
-| `queue` | Bezpieczna komunikacja między wątkiem roboczym a głównym wątkiem GUI (FIFO). |
-| `re` (regex) | Parsowanie tekstowe, głównie do ekstrakcji atrybutów przedmiotu z nazwy rynkowej. |
-| `matplotlib` | Renderowanie wykresu historii cen (Figure, Axes, event hover). |
-| `numpy` | Efektywne obliczenia dystansu punktu (hover), operacje na tablicach. |
-| `Pillow` (`PIL`) | Skalowanie i konwersja obrazków skórek oraz generacja ikony `.ico`. |
-| `selenium` | Automatyczne uruchamianie przeglądarki (Edge/Chrome) i przechwytywanie cookie `steamLoginSecure`. |
-| `webdriver-manager` | Automatyczne zarządzanie sterownikami Selenium (fallback przy braku wbudowanego). |
-| `pyinstaller` | Budowanie dystrybucji wykonywalnej (.exe) aplikacji. |
-
-## Format Danych (Listings)
-```
-{
-    'listings': [ {'price_float': float|None, 'fee': float|None}, ... ],
-    'total_count': int,
-    'lowest_price': str,
-    'lowest_price_float': float,
-    'meta': { 'retries': int, 'pages_loaded': int }
-}
-```
+***
 
 ## Najczęstsze Problemy
+
 | Problem | Przyczyna | Rozwiązanie |
 | :--- | :--- | :--- |
 | Brak historii cen | Cookie wygasło lub brak | Podaj aktualne `steamLoginSecure`. |
 | Mało ofert | Limit API / brak dalszych stron | Spróbuj ponownie; możliwy rate limit. |
 | Zła najniższa cena | Stare źródło z API | Obecnie liczona z listingu. |
 | 429/503 | Rate limit Steam | Odczekaj; backoff działa automatycznie. |
+
+***
 
 ## Historia Zmian (Changelog)
 
