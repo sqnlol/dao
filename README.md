@@ -218,6 +218,24 @@ CS2 Skin Analyzer/
 | Skalowanie obrazków skrzyń z utratą proporcji | Niektóre miniatury lekko zniekształcone przy fitowaniu. | Planowane | Zachowanie aspect ratio przez `thumbnail()` + letterboxing (tło). |
 | Brak walidacji formatu cookie w UI | Błędne wklejenie skróconego lub uszkodzonego cookie nie dawało ostrzeżenia. | Planowane | Regex walidacja długości/formatu znaków przed akceptacją w LoginView. |
 
+### CS2 Skin Analyzer v0.7 (Tydzień 7):
+
+| Data | Opis Zmiany / Działania | Status |
+| :--- | :--- | :--- |
+| **Nowy Design ResultsView** | Kompletny redesign widoku wyników z ciemnym motywem (#1e1e1e), wyśrodkowanym nagłówkiem z nazwą przedmiotu, separatorem i rozwijanym menu dropdown. | Ukończono |
+| **Menu Dropdown w ResultsView** | Przycisk "▼" przy awatarze otwiera menu z opcjami "💱 Zmień walutę" i "🚪 Wyloguj"; hover-efekty i zamykanie po kliknięciu poza menu. | Ukończono |
+| **Modal Zmiany Waluty** | Elegancki modal z przyciskami PLN/USD/EUR; aktualnie wybrana waluta podświetlona; automatyczne odświeżenie wszystkich cen po zmianie. | Ukończono |
+| **Hover na Wykresie z Kropką** | Przy najechaniu na punkt wykresu wyświetla się tooltip z datą i ceną oraz duża zielona kropka (#00ff00, s=80) z białą obwódką podświetlająca aktywny punkt. | Ukończono |
+| **Tooltip Auto-flip** | Tooltip na wykresie automatycznie odbija się od krawędzi canvas (prawo/góra/dół) aby nie być uciętym. | Ukończono |
+| **Selektory Zakresu Dat** | Customowy zakres "Od - Do" z trzema comboboxami (rok-miesiąc-dzień) zamiast pól tekstowych; dynamiczna walidacja dni w miesiącu (np. nie można wybrać 31 lutego). | Ukończono |
+| **Paginacja Ofert z Cache** | Pełny system cache stron ofert (`_page_cache`), prefetch następnej strony w tle, overlay ładowania; przyciski ◀◀ ◀ ▶ ▶▶ do nawigacji. | Ukończono |
+| **Paginacja Danych Historycznych** | Przyciski nawigacji (pierwsza/poprzednia/następna/ostatnia strona) dla tabeli historii; 50 rekordów na stronę. | Ukończono |
+| **Sortowanie Historii** | Klikalne nagłówki "Cena Sprzedaży" i "Data sprzedaży" (kolor niebieski, cursor hand2); przełączanie kierunku sortowania ze strzałkami ↑/↓; domyślnie najnowsze pierwsze. | Ukończono |
+| **Hiperłącze do Steam Market** | Tytuł "Aktualne oferty na rynku Steam: 🔗" jest klikalnym linkiem otwierającym przeglądarkę ze stroną Steam Market dla danego przedmiotu. | Ukończono |
+| **Poprawa Scrollowania** | Naprawiono scroll myszką w ResultsView; użycie flagi `_scroll_active` z bind_all zamiast rekursywnego bindowania do dzieci. | Ukończono |
+| **Ujednolicony Padding Nagłówków** | Spójny padding i wygląd nagłówków we wszystkich widokach (SearchView, ResultsView, HeaderBar). | Ukończono |
+| **Naprawione Ceny Ofert** | Poprawiono wyświetlanie cen w liście ofert (użycie `price_float` zamiast `converted_price`). | Ukończono |
+
 ### CS2 Skin Analyzer v0.5 (Tydzień 5):
 
 #### Ekran Główny z Interaktywnym GUI
