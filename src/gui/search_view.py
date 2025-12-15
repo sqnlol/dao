@@ -229,7 +229,11 @@ class SearchView:
         auto_frame = tk.Frame(bottom, bg='#1e1e1e')
         auto_frame.pack()
         
-        self.suggestions_label = tk.Label(auto_frame, text="Autouzupełnienie listy przedmiotów", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 9), cursor='hand2')
+        # Status kółko (zielone/czerwone)
+        self.auto_status_indicator = tk.Label(auto_frame, text="●", bg='#1e1e1e', fg='#ff4444', font=('Segoe UI', 10))
+        self.auto_status_indicator.pack(side='left', padx=(0, 6))
+        
+        self.suggestions_label = tk.Label(auto_frame, text="Autouzupełnianie wyłączone", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 9), cursor='hand2')
         self.suggestions_label.pack(side='left')
         
         self.auto_dropdown_arrow = tk.Label(auto_frame, text="▼", bg='#1e1e1e', fg='#888888', font=('Segoe UI', 7), cursor='hand2')
@@ -239,8 +243,8 @@ class SearchView:
         self.auto_dropdown_menu = None
         self.auto_dropdown_visible = False
         
-        # Bindowanie kliknięcia
-        for widget in (self.suggestions_label, self.auto_dropdown_arrow):
+        # Bindowanie kliknięcia - wszystkie elementy otwierają dropdown
+        for widget in (self.auto_status_indicator, self.suggestions_label, self.auto_dropdown_arrow):
             widget.bind('<Button-1>', self._toggle_auto_dropdown)
 
         # ===================== UKRYTE ELEMENTY (kompatybilność) =====================
@@ -266,6 +270,9 @@ class SearchView:
         self.auto_next_label = None
         self.progress_var = tk.IntVar(value=0)
         self.progress_bar = None
+        
+        # Zaktualizuj wyświetlanie statusu autouzupełniania na starcie
+        self._update_auto_status_display()
 
         # ===================== BINDINGI =====================
         self.weapon_combo.bind("<<ComboboxSelected>>", self.on_weapon_select)
@@ -1422,11 +1429,13 @@ class SearchView:
             self._hide_auto_dropdown()
         else:
             self._show_auto_dropdown()
+        return "break"  # Zatrzymaj propagację eventu
 
     def _show_auto_dropdown(self):
         """Wyświetla menu dropdown autouzupełniania."""
         if self.auto_dropdown_menu:
             self._hide_auto_dropdown()
+            return
 
         # Utwórz menu jako Toplevel
         self.auto_dropdown_menu = tk.Toplevel(self.controller.root)
@@ -1445,6 +1454,23 @@ class SearchView:
         menu_frame = tk.Frame(self.auto_dropdown_menu, bg='#2a2a2a', highlightbackground='#5588cc', highlightthickness=1)
         menu_frame.pack(fill='both', expand=True)
 
+        # Opcja: Włącz/Wyłącz autouzupełnianie
+        is_enabled = self.auto_refresh_enabled.get()
+        toggle_text = "🔴 Wyłącz autouzupełnianie" if is_enabled else "🟢 Włącz autouzupełnianie"
+        toggle_btn = tk.Label(
+            menu_frame, text=toggle_text,
+            bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10),
+            padx=16, pady=8, cursor='hand2', anchor='w'
+        )
+        toggle_btn.pack(fill='x')
+        toggle_btn.bind('<Enter>', lambda e: toggle_btn.config(bg='#3a3a3a'))
+        toggle_btn.bind('<Leave>', lambda e: toggle_btn.config(bg='#2a2a2a'))
+        toggle_btn.bind('<Button-1>', lambda e: self._toggle_auto_refresh())
+
+        # Separator
+        sep0 = tk.Frame(menu_frame, bg='#444444', height=1)
+        sep0.pack(fill='x', padx=8)
+
         # Opcja: Ustawienia interwału
         interval_btn = tk.Label(
             menu_frame, text="⏱ Ustawienia interwału",
@@ -1460,30 +1486,16 @@ class SearchView:
         sep1 = tk.Frame(menu_frame, bg='#444444', height=1)
         sep1.pack(fill='x', padx=8)
 
-        # Opcja: Pobierz teraz (uruchamia automatyczne pobieranie)
-        refresh_btn = tk.Label(
-            menu_frame, text="🔄 Pobierz teraz",
+        # Opcja: Przeładuj sugestie (odświeża wyszukiwarkę z aktualnej listy)
+        reload_btn = tk.Label(
+            menu_frame, text="📂 Przeładuj sugestie",
             bg='#2a2a2a', fg='#ffffff', font=('Segoe UI', 10),
             padx=16, pady=8, cursor='hand2', anchor='w'
         )
-        refresh_btn.pack(fill='x')
-        refresh_btn.bind('<Enter>', lambda e: refresh_btn.config(bg='#3a3a3a'))
-        refresh_btn.bind('<Leave>', lambda e: refresh_btn.config(bg='#2a2a2a'))
-        refresh_btn.bind('<Button-1>', lambda e: self._start_auto_refresh_now())
-
-        # Separator
-        sep2 = tk.Frame(menu_frame, bg='#444444', height=1)
-        sep2.pack(fill='x', padx=8)
-
-        # Info o statusie
-        is_auto_enabled = self.auto_refresh_enabled.get()
-        status_text = "🟢 Włączone" if is_auto_enabled else "🔴 Wyłączone"
-        status_label = tk.Label(
-            menu_frame, text=f"Status: {status_text}",
-            bg='#2a2a2a', fg='#888888', font=('Segoe UI', 9),
-            padx=16, pady=6, anchor='w'
-        )
-        status_label.pack(fill='x')
+        reload_btn.pack(fill='x')
+        reload_btn.bind('<Enter>', lambda e: reload_btn.config(bg='#3a3a3a'))
+        reload_btn.bind('<Leave>', lambda e: reload_btn.config(bg='#2a2a2a'))
+        reload_btn.bind('<Button-1>', lambda e: self._reload_suggestions_from_file())
 
         # Oblicz pozycję (nad przyciskiem)
         self.auto_dropdown_menu.update_idletasks()
@@ -1493,11 +1505,38 @@ class SearchView:
         self.auto_dropdown_menu.geometry(f"+{x}+{y}")
         self.auto_dropdown_visible = True
 
-        # Zamknij menu po kliknięciu poza nim
-        self.controller.root.bind('<Button-1>', self._on_click_outside_auto_dropdown, add='+')
+        # Zamknij menu po kliknięciu poza nim (po krótkim opóźnieniu)
+        self._auto_bind_id = self.controller.root.after(100, self._bind_auto_outside_click)
+
+    def _bind_auto_outside_click(self):
+        """Binduje handler kliknięcia poza dropdown."""
+        self._auto_outside_click_bind_id = self.controller.root.bind('<Button-1>', self._on_click_outside_auto_dropdown, add='+')
+
+    def _reload_suggestions_from_file(self):
+        """Przeładowuje sugestie z pliku i odświeża wyszukiwarkę."""
+        self._hide_auto_dropdown()
+        try:
+            # Wczytaj sugestie z pliku przez kontroler
+            if hasattr(self.controller, '_load_existing_suggestions_only'):
+                self.controller._load_existing_suggestions_only()
+            # Odśwież taksomonię
+            self._reload_taxonomy()
+            # Zaktualizuj wyświetlanie
+            self._update_auto_status_display()
+            self.log_message(f"Przeładowano {len(self.controller.all_suggestions)} sugestii z pliku.")
+        except Exception as e:
+            self.log_message(f"Błąd przeładowywania sugestii: {e}")
 
     def _hide_auto_dropdown(self):
         """Ukrywa menu dropdown autouzupełniania."""
+        # Usuń binding kliknięcia poza menu
+        try:
+            if hasattr(self, '_auto_outside_click_bind_id') and self._auto_outside_click_bind_id:
+                self.controller.root.unbind('<Button-1>', self._auto_outside_click_bind_id)
+                self._auto_outside_click_bind_id = None
+        except Exception:
+            pass
+        
         if self.auto_dropdown_menu:
             try:
                 self.auto_dropdown_menu.destroy()
@@ -1508,26 +1547,42 @@ class SearchView:
 
     def _on_click_outside_auto_dropdown(self, event):
         """Zamyka dropdown autouzupełniania jeśli kliknięto poza nim."""
-        if not self.auto_dropdown_menu:
+        if not self.auto_dropdown_menu or not self.auto_dropdown_visible:
             return
         try:
+            # Sprawdź czy kliknięto na elementy toggle (kółko, napis, strzałka)
+            for widget in (self.auto_status_indicator, self.suggestions_label, self.auto_dropdown_arrow):
+                try:
+                    wx = widget.winfo_rootx()
+                    wy = widget.winfo_rooty()
+                    ww = widget.winfo_width()
+                    wh = widget.winfo_height()
+                    if wx <= event.x_root <= wx + ww and wy <= event.y_root <= wy + wh:
+                        return  # Kliknięto na toggle - nie zamykaj (toggle obsłuży)
+                except Exception:
+                    pass
+            
             if self.auto_dropdown_menu.winfo_exists():
                 menu_x = self.auto_dropdown_menu.winfo_rootx()
                 menu_y = self.auto_dropdown_menu.winfo_rooty()
                 menu_w = self.auto_dropdown_menu.winfo_width()
                 menu_h = self.auto_dropdown_menu.winfo_height()
-                click_x = event.x_root
-                click_y = event.y_root
-                if not (menu_x <= click_x <= menu_x + menu_w and menu_y <= click_y <= menu_y + menu_h):
-                    # Sprawdź czy nie kliknięto w strzałkę/etykietę (toggle)
-                    label_x = self.suggestions_label.winfo_rootx()
-                    label_y = self.suggestions_label.winfo_rooty()
-                    label_w = self.suggestions_label.winfo_width() + self.auto_dropdown_arrow.winfo_width() + 10
-                    label_h = self.suggestions_label.winfo_height()
-                    if not (label_x <= click_x <= label_x + label_w and label_y <= click_y <= label_y + label_h):
-                        self._hide_auto_dropdown()
+                if not (menu_x <= event.x_root <= menu_x + menu_w and menu_y <= event.y_root <= menu_y + menu_h):
+                    self._hide_auto_dropdown()
         except Exception:
             self._hide_auto_dropdown()
+
+    def _update_auto_status_display(self):
+        """Aktualizuje wyświetlanie statusu autouzupełniania."""
+        is_enabled = self.auto_refresh_enabled.get()
+        count = len(getattr(self.controller, 'all_suggestions', []))
+        
+        if is_enabled:
+            self.auto_status_indicator.config(fg='#44ff44')  # Zielone
+            self.suggestions_label.config(text=f"Autouzupełnianie ({count} sugestii)")
+        else:
+            self.auto_status_indicator.config(fg='#ff4444')  # Czerwone
+            self.suggestions_label.config(text="Autouzupełnianie wyłączone")
 
     def _toggle_auto_refresh(self):
         """Włącza/wyłącza automatyczne odświeżanie."""
@@ -1540,6 +1595,7 @@ class SearchView:
         else:
             self.log_message("Automatyczne uzupełnianie WYŁĄCZONE")
             self._cancel_auto_refresh()
+        self._update_auto_status_display()
 
     def _start_auto_refresh_now(self):
         """Uruchamia automatyczne pobieranie natychmiast."""
@@ -1547,6 +1603,7 @@ class SearchView:
         # Włącz automatyczne odświeżanie jeśli nie jest włączone
         if not self.auto_refresh_enabled.get():
             self.auto_refresh_enabled.set(True)
+            self._update_auto_status_display()
         self.log_message("Rozpoczynam pobieranie sugestii...")
         # Anuluj poprzednie zaplanowane i rozpocznij od razu
         self._cancel_auto_refresh()
@@ -1690,7 +1747,7 @@ class SearchView:
         """Ustawia listę sugestii po pobraniu; aktualizuje etykietę i log."""
         try:
             self.controller.all_suggestions = suggestions or []
-            self.suggestions_label.config(text=f"Sugestie: {len(self.controller.all_suggestions)}")
+            self._update_auto_status_display()
             self.log_message(f"Autouzupełnianie załadowane ({len(self.controller.all_suggestions)} pozycji).")
             # aktualizacja zaplanowanego cyklu
             self._update_auto_next_label()
