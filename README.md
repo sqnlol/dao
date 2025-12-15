@@ -4,11 +4,15 @@
 
 **CS2 Skin Analyzer** to aplikacja desktopowa stworzona w Pythonie z wykorzystaniem biblioteki **tkinter** do wizualizacji i analizy rynku skórek do gry **Counter-Strike 2 (CS2)**.
 
-Głównym celem projektu jest dostarczenie użytkownikowi narzędzia, które:
-1.  Pobiera **aktualne oferty sprzedaży** z Rynku Społeczności Steam.
-2.  Pobiera **historyczne dane cenowe** danego przedmiotu.
-3.  Przechowuje dane w **lokalnej bazie danych SQLite**.
-4.  Analizuje na ich podstawie trendy cenowe.
+### Główne funkcjonalności
+
+- 📊 **Wykres historii cen** — interaktywny wykres Matplotlib z hover-tooltipem, zakresami dat i sortowaniem
+- 💰 **Aktualne oferty** — paginowana lista ofert ze Steam Market z cache i prefetch
+- 🔐 **Logowanie** — ręczne wprowadzenie cookie lub automatyczne logowanie przez przeglądarkę (Selenium)
+- 💱 **Obsługa walut** — PLN, USD, EUR z automatyczną konwersją cen
+- 📦 **Galeria skrzyń** — przeglądanie wszystkich skrzyń CS2 z cache'owanymi miniaturami
+- 🔍 **Inteligentne wyszukiwanie** — taksonomia broni, filtry (StatTrak™, wear), autouzupełnianie
+- 💾 **Lokalna baza danych** — SQLite do przechowywania historii sprzedaży
 
 ***
 
@@ -22,34 +26,58 @@ Głównym celem projektu jest dostarczenie użytkownikowi narzędzia, które:
 - [Historia zmian (Changelog)](#historia-zmian-changelog)
 
 ## Uruchomienie (Quick Start)
-1. Instalacja zależności:
-    ```bash
-    pip install -r requirements.txt
-    ```
-2. Start aplikacji:
-    ```bash
-    python src\main.py
-    ```
-3. Wprowadź cookie `steamLoginSecure`.
-4. Wybierz przedmiot → poczekaj na pobranie → analizuj oferty i wykres.
+
+### Instalacja
+```bash
+pip install -r requirements.txt
+```
+
+### Uruchomienie aplikacji
+```bash
+python src/main.py
+```
+
+### Uruchomienie testów
+```bash
+pytest tests/ -v
+```
+
+### Pierwsze kroki
+1. **Logowanie** — wprowadź cookie `steamLoginSecure` ręcznie lub użyj automatycznego logowania przez przeglądarkę (Selenium).
+2. **Wyszukiwanie** — wybierz kategorię, broń i skórkę z list rozwijanych.
+3. **Analiza** — poczekaj na pobranie danych, przeglądaj wykres cen, aktualne oferty i historię sprzedaży.
 
 ## Struktura Plików 
 
 ```
 CS2 Skin Analyzer/
-├── src/ 
-│   ├── gui/ 
-│   │   ├── app.py           # Główny Kontroler Aplikacji
-│   │   ├── login_view.py    # Widok Logowania
-│   │   ├── search_view.py   # Widok Wyszukiwania
-│   │   └── results_view.py  # Widok Wyników
-│   ├── database.py          # Obsługa bazy SQLite
-│   ├── steam_market.py      # Komunikacja z API Steam
-│   └── main.py              # Punkt wejścia aplikacji
+├── src/
+│   ├── gui/
+│   │   ├── app.py              # Główny kontroler aplikacji (MVC)
+│   │   ├── login_view.py       # Widok logowania (cookie / Selenium)
+│   │   ├── search_view.py      # Widok wyszukiwania przedmiotów
+│   │   ├── results_view.py     # Widok wyników (wykres, oferty, historia)
+│   │   ├── cases_view.py       # Galeria skrzyń CS2
+│   │   ├── case_detail_view.py # Szczegóły wybranej skrzyni
+│   │   └── header_bar.py       # Pasek nagłówka z nawigacją
+│   ├── database.py             # Obsługa bazy SQLite
+│   ├── steam_market.py         # Komunikacja z API Steam Market
+│   ├── skin_list.py            # Taksonomia broni i skórek
+│   ├── skin_list_builder.py    # Budowanie listy skórek z sugestii
+│   ├── suggestions_loader.py   # Ładowanie autouzupełniania
+│   ├── resource_paths.py       # Ścieżki zasobów (dev / PyInstaller)
+│   ├── case_images_cache.py    # Cache obrazków skrzyń
+│   └── main.py                 # Punkt wejścia aplikacji
+├── tests/
+│   ├── test_unit.py            # Testy jednostkowe
+│   ├── test_integration.py     # Testy integracyjne
+│   ├── test_functional.py      # Testy funkcjonalne
+│   ├── test_e2e.py             # Testy end-to-end
+│   └── test_performance.py     # Testy wydajnościowe
 ├── doc/
-│   └── DOKUMENTACJA_TECHNICZNA.md  # Pełna dokumentacja techniczna
-├── requirements.txt         # Zależności Pythona
-└── README.md                # Ten plik
+│   └── DOKUMENTACJA_TECHNICZNA.md
+├── requirements.txt
+└── README.md
 ```
 
 ***
@@ -73,10 +101,12 @@ Dokumentacja zawiera:
 
 | Problem | Przyczyna | Rozwiązanie |
 | :--- | :--- | :--- |
-| Brak historii cen | Cookie wygasło lub brak | Podaj aktualne `steamLoginSecure`. |
-| Mało ofert | Limit API / brak dalszych stron | Spróbuj ponownie; możliwy rate limit. |
-| Zła najniższa cena | Stare źródło z API | Obecnie liczona z listingu. |
-| 429/503 | Rate limit Steam | Odczekaj; backoff działa automatycznie. |
+| Brak historii cen | Cookie wygasło lub brak | Podaj aktualne `steamLoginSecure` lub zaloguj się przez przeglądarkę. |
+| HTTP 429 / 503 | Rate limit Steam | Odczekaj ~30s; exponential backoff działa automatycznie. |
+| Selenium nie działa | Brak sterownika przeglądarki | Zainstaluj Edge lub Chrome; `webdriver-manager` pobierze sterownik. |
+| Autouzupełnianie puste | Brak pliku `suggestions.txt` | Kliknij "Odśwież autouzupełnianie" w widoku wyszukiwania. |
+| Wykres się nie ładuje | Brak `matplotlib` / `numpy` | Uruchom `pip install -r requirements.txt`. |
+| Błąd przy budowaniu .exe | Brakujące zasoby | Użyj `pyinstaller CS2SkinAnalyzer.spec`. |
 
 ***
 
