@@ -1,0 +1,1085 @@
+import tkinter as tk
+from tkinter import ttk
+from src import steam_market
+import sys
+import operator # do sortowania listy
+import datetime
+from collections import defaultdict, OrderedDict
+
+# --- IMPORTY DLA WYKRESU (prosta wersja) ---
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.dates as mdates
+# --- KONIEC IMPORTÓW ---
+
+# Kursy walut względem PLN (przybliżone)
+EXCHANGE_RATES = {
+    'PLN': 1.0,
+    'USD': 0.25,  # 1 PLN ≈ 0.25 USD
+    'EUR': 0.23   # 1 PLN ≈ 0.23 EUR
+}
+
+class ResultsView:
+    def __init__(self, master, app_controller):
+        self.controller = app_controller
+        self.frame = ttk.Frame(master, padding="16 12 16 16")
+        self.frame.grid(row=0, column=0, sticky="nsew") 
+        self.frame.grid_rowconfigure(2, weight=1) 
+        self.frame.grid_columnconfigure(0, weight=1) 
+
+        # Dane do wyświetlenia
+        self.current_item_name = ""
+        self.history_data = []
+        self.listings_data = {}
+        self._history_from_api = False  # Czy dane historyczne są z API (już w poprawnej walucie)
+        # Stan sortowania historii (True = podstawowy kierunek: cena rosnąco, data malejąco -> najnowsze)
+        self._history_sort_states = {
+            'price': True,           # True => ascending, False => descending
+            'sale_timestamp': True   # True => newest first (descending), False => oldest first (ascending)
+        }
+        self._history_last_sorted = None
+        # Paginacja ofert
+        self.page_size = 10
+        self.current_page = 0  # indeks strony (0-based)
+        self._all_listings = []  # pełna lista do paginacji
+        self._page_cache = {}  # page_idx -> list of listings
+        self._pages_loading = set()
+        self._cache_item_key = None  # identyfikator aktualnego przedmiotu dla cache
+        self._total_count = 0
+        # stały rozmiar okna z listą, aby uniknąć skoków i umożliwić overlay
+        self._listings_width = 1120
+        self._listings_height = 420
+        self._overlay_canvas = None
+        self._overlay_stipple = "gray50"  # intensywność bluru: gray12 (lekki) / gray50 (mocny)
+
+        # Cache obrazków (LRU)
+        self._image_cache = OrderedDict()
+        self._image_cache_limit = 50
+
+        self._create_widgets()
+    
+    def _convert_price(self, price_pln, is_already_converted=False):
+        """Konwertuje cenę z PLN na wybraną walutę.
+        
+        Args:
+            price_pln: Cena w PLN (lub już skonwertowana jeśli is_already_converted=True)
+            is_already_converted: Czy cena jest już w docelowej walucie (z API Steam)
+        """
+        if price_pln is None:
+            return None
+        if is_already_converted:
+            return price_pln  # Dane z API są już w poprawnej walucie
+        currency = getattr(self.controller, 'currency', 'PLN')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+        return price_pln * rate
+        
+    def _create_widgets(self):
+        # 1. Nagłówek i przycisk powrotu
+        header_frame = ttk.Frame(self.frame)
+        header_frame.grid(row=0, column=0, sticky='ew', pady=(0, 10))
+        header_frame.grid_columnconfigure(1, weight=1) 
+
+        self.back_button = ttk.Button(header_frame, text="< Wyszukiwanie", command=lambda: self.controller.switch_view("search"))
+        self.back_button.grid(row=0, column=0, sticky='w')
+
+        self.title_label = ttk.Label(header_frame, text="[Nazwa Przedmiotu]", font=("Arial", 16, "bold"))
+        self.title_label.grid(row=0, column=1, padx=10, sticky='w')
+        # miejsce na obrazek przedmiotu w prawym górnym rogu
+        header_frame.grid_columnconfigure(2, weight=0)
+        self._header_image_label = tk.Label(header_frame, bd=0)
+        self._header_image_label.grid(row=0, column=2, sticky='e')
+        self._current_item_image = None
+        
+        ttk.Separator(self.frame, orient='horizontal').grid(row=1, column=0, sticky='ew', pady=5)
+        
+        # 2. Główna przewijana sekcja
+        self.main_content_frame = ttk.Frame(self.frame)
+        self.main_content_frame.grid(row=2, column=0, sticky='nsew')
+        self.main_content_frame.grid_rowconfigure(0, weight=1)
+        self.main_content_frame.grid_columnconfigure(0, weight=1)
+
+        self.scrollable_content = tk.Canvas(self.main_content_frame, bd=0, highlightthickness=0)
+        self.scrollable_content.grid(row=0, column=0, sticky='nsew')
+
+        self.scrollbar = ttk.Scrollbar(self.main_content_frame, orient="vertical", command=self.scrollable_content.yview)
+        self.scrollbar.grid(row=0, column=1, sticky='ns')
+
+        self.scrollable_content.configure(yscrollcommand=self.scrollbar.set)
+        
+        self.inner_frame = ttk.Frame(self.scrollable_content, padding="5")
+        self.scrollable_content.create_window((0, 0), window=self.inner_frame, anchor="nw")
+        
+        self.inner_frame.bind("<Configure>", lambda e: self.scrollable_content.configure(scrollregion=self.scrollable_content.bbox("all")))
+        self.inner_frame.grid_columnconfigure(0, weight=1)
+        self.inner_frame.grid_rowconfigure(2, weight=1)
+        self.inner_frame.grid_rowconfigure(4, weight=1)
+        
+        # --- SEKCJA OBRAZKA ---
+        self.image_section = ttk.LabelFrame(self.inner_frame, text="🖼 Obrazek")
+        self.image_section.grid(row=0, column=0, sticky="nsew", pady=(0, 15))
+        self.image_section.grid_columnconfigure(0, weight=1)
+        self._create_image_widgets(self.image_section)
+
+        # --- SEKCJA WYKRESU (PROSTA WERSJA) ---
+        self.chart_section = ttk.LabelFrame(self.inner_frame, text="📈 Wykres Cenowy")
+        self.chart_section.grid(row=1, column=0, sticky="nsew", pady=(0, 15))
+        self.chart_section.grid_columnconfigure(0, weight=1)
+        self._create_chart_widgets(self.chart_section)
+        
+    # Sekcja Ofert
+        self.listings_section = ttk.LabelFrame(self.inner_frame, text="📊 Aktualne Oferty Rynkowe")
+        self.listings_section.grid(row=2, column=0, sticky="nsew", pady=(0, 15))
+        self.listings_section.grid_columnconfigure(0, weight=1)
+        
+        # Sekcja Podsumowania
+        self.summary_section = ttk.LabelFrame(self.inner_frame, text="📜 Podsumowanie Historyczne")
+        self.summary_section.grid(row=3, column=0, sticky="nsew", pady=(0, 15))
+        self.summary_section.grid_columnconfigure(0, weight=1)
+
+        # Sekcja Tabeli Historii
+        self.history_table_section = ttk.LabelFrame(self.inner_frame, text="⏳ Szczegóły Transakcji Historycznych")
+        self.history_table_section.grid(row=4, column=0, sticky="nsew", pady=(0, 15))
+        self.history_table_section.grid_columnconfigure(0, weight=1)
+        
+        self.history_expanded = tk.BooleanVar(value=False)
+        self.history_toggle_button = ttk.Button(self.history_table_section, text="Rozwiń Tabela Danych", command=self._toggle_history_table)
+        self.history_toggle_button.pack(pady=5, padx=5, fill='x')
+        
+        self.history_tree = self._create_history_treeview(self.history_table_section)
+        
+        
+    def _clear_sections(self):
+        """Czyści dynamiczną zawartość sekcji przed nowym wynikiem."""
+        
+        if hasattr(self, 'ax'):
+            self.ax.clear()
+            self.chart_canvas.draw()
+        
+        for widget in self.listings_section.winfo_children():
+            widget.destroy()
+            
+        for widget in self.summary_section.winfo_children():
+            widget.destroy()
+            
+        self.history_tree.delete(*self.history_tree.get_children())
+        self.history_tree.pack_forget() 
+        self.history_expanded.set(False)
+        self.history_toggle_button.config(text="Rozwiń Tabela Danych")
+        self.history_toggle_button.pack(pady=5, padx=5, fill='x')
+        # Wyczyść obrazek
+        try:
+            if hasattr(self, '_image_label'):
+                self._image_label.config(image='', text='(Brak obrazka)')
+            self._current_item_image = None
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # --- FUNKCJE DLA WYKRESU (PROSTA WERSJA) ---
+    # ------------------------------------------------------------------
+
+    def _create_chart_widgets(self, master):
+        """Tworzy płótno Matplotlib i przyciski filtrowania."""
+        
+        button_frame = ttk.Frame(master)
+        button_frame.pack(fill='x', padx=5, pady=5)
+        
+        ttk.Button(button_frame, text="Tydzień", command=lambda: self._plot_chart('week')).pack(side='left', padx=2)
+        ttk.Button(button_frame, text="Miesiąc", command=lambda: self._plot_chart('month')).pack(side='left', padx=2)
+        ttk.Button(button_frame, text="Ogółem", command=lambda: self._plot_chart('all')).pack(side='left', padx=2)
+
+        # Czarne tło
+        self.fig = Figure(figsize=(11, 4), dpi=100)
+        self.fig.patch.set_facecolor('#2E2E2E')
+
+        self.ax = self.fig.add_subplot(111)
+        self.ax.set_facecolor('#1C1C1C')
+        self.ax.tick_params(axis='x', colors='white')
+        self.ax.tick_params(axis='y', colors='white')
+        self.ax.yaxis.label.set_color('white')
+        self.ax.xaxis.label.set_color('white')
+        self.ax.title.set_color('white')
+
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor('white')
+
+        self.chart_canvas = FigureCanvasTkAgg(self.fig, master=master)
+        self.chart_canvas.get_tk_widget().pack(fill='both', expand=True, padx=5, pady=5)
+        self.chart_canvas.draw()
+        # Przygotuj adnotację do podpowiedzi hover i nasłuchiwanie zdarzeń myszy
+        try:
+            self._hover_annot = self.ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(12, 12),
+                textcoords="offset points",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#000000", ec="#ffffff", alpha=0.85),
+                color="white",
+            )
+            self._hover_annot.set_visible(False)
+            self._hover_threshold_px = 12  # maks. odległość w pikselach od punktu, aby pokazać tooltip
+            self.chart_canvas.mpl_connect("motion_notify_event", self._on_chart_hover)
+        except Exception:
+            # Jeżeli środowisko nie obsłuży – trudno, wykres pozostaje bez hover
+            self._hover_annot = None
+            self._hover_threshold_px = 0
+    
+    def _create_image_widgets(self, master):
+        """Tworzy kontener i etykietę na obrazek, wyśrodkowaną w sekcji."""
+        self._image_container = ttk.Frame(master)
+        self._image_container.pack(fill='x', padx=5, pady=(5,5))
+        # Domyślny tekst, dopóki nie pobierzemy grafiki
+        self._image_label = ttk.Label(self._image_container, text='(Brak obrazka)')
+        self._image_label.pack(anchor='center')
+        self._current_item_image = None
+
+    def _plot_chart(self, time_range='all'):
+        """Wersja Opcja A: Rysuje każdą pojedynczą transakcję."""
+        
+        if not self.history_data:
+            self.ax.clear()
+            self.ax.text(0.5, 0.5, 'Brak danych historycznych', 
+                         horizontalalignment='center', verticalalignment='center', 
+                         transform=self.ax.transAxes, color='white')
+            self.chart_canvas.draw()
+            return
+            
+        now = datetime.datetime.now()
+        limit_date = None
+        
+        if time_range == 'week':
+            limit_date = now - datetime.timedelta(days=7)
+        elif time_range == 'month':
+            limit_date = now - datetime.timedelta(days=30)
+        
+        x_dates = []
+        y_prices = []
+        plotted_records = []
+        
+        try:
+            for record in self.history_data:
+                record_date = datetime.datetime.fromtimestamp(record['sale_timestamp'])
+                # Konwertuj cenę tylko jeśli dane NIE są z API (są z bazy w PLN)
+                if self._history_from_api:
+                    price = record['price']  # Dane z API już w poprawnej walucie
+                else:
+                    price = self._convert_price(record['price'])  # Dane z bazy w PLN - konwertuj
+                
+                if time_range == 'all':
+                    x_dates.append(record_date)
+                    y_prices.append(price)
+                    plotted_records.append(record)
+                elif limit_date is not None and record_date > limit_date:
+                    x_dates.append(record_date)
+                    y_prices.append(price)
+                    plotted_records.append(record)
+        except Exception as e:
+            print(f"Błąd przetwarzania daty dla wykresu: {e}", file=sys.stderr)
+            return
+
+        if not x_dates:
+            self.ax.clear()
+            self.ax.text(0.5, 0.5, f'Brak danych historycznych dla zakresu: {time_range}', 
+                         horizontalalignment='center', verticalalignment='center', 
+                         transform=self.ax.transAxes, color='white')
+            self.chart_canvas.draw()
+            return
+
+        self.ax.clear()
+        
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        
+        # --- KLUCZOWA ZMIANA ---
+        # Zmieniono 'o' (kropki) na '.-' (linia z kropkami)
+        line, = self.ax.plot(x_dates, y_prices, '.-', markersize=4, color='#3498db', alpha=0.7)
+        # Zapamiętaj dane do hover tooltips
+        self._chart_line = line
+        self._chart_points = list(zip(x_dates, y_prices))
+        self._chart_records = plotted_records
+        # --- KONIEC ZMIANY ---
+        
+        self.ax.set_title(f"Historia transakcji ({time_range})", color='white')
+        self.ax.set_ylabel(f"Cena ({currency_symbol})", color='white')
+        self.ax.grid(True, linestyle='--', alpha=0.2, color='white')
+        
+        self.fig.autofmt_xdate()
+        date_format = mdates.DateFormatter('%Y-%m-%d')
+        self.ax.xaxis.set_major_formatter(date_format)
+        
+        self.ax.set_facecolor('#1C1C1C')
+        self.ax.tick_params(axis='x', colors='white')
+        self.ax.tick_params(axis='y', colors='white')
+        for spine in self.ax.spines.values():
+            spine.set_edgecolor('white')
+        
+        self.chart_canvas.draw()
+        
+        self.inner_frame.update_idletasks()
+        self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
+        
+        # Po czyszczeniu osi podczas rysowania adnotacja mogła zostać usunięta – odtwórz ją
+        try:
+            if hasattr(self, '_hover_annot') and self._hover_annot is not None:
+                try:
+                    self._hover_annot.remove()
+                except Exception:
+                    pass
+            self._hover_annot = self.ax.annotate(
+                "",
+                xy=(0, 0),
+                xytext=(12, 12),
+                textcoords="offset points",
+                bbox=dict(boxstyle="round,pad=0.3", fc="#000000", ec="#ffffff", alpha=0.85),
+                color="white",
+            )
+            self._hover_annot.set_visible(False)
+            if not hasattr(self, '_hover_threshold_px'):
+                self._hover_threshold_px = 12
+            # Przygotuj też zielone podświetlenie punktu (nakładka scatter jednopunktowa)
+            try:
+                if hasattr(self, '_hover_dot') and self._hover_dot is not None:
+                    try:
+                        self._hover_dot.remove()
+                    except Exception:
+                        pass
+                self._hover_dot = self.ax.scatter([], [], s=48, color='lime', zorder=5, marker='o')
+                self._hover_dot.set_visible(False)
+            except Exception:
+                self._hover_dot = None
+        except Exception as e:
+            try:
+                print(f"Błąd odtwarzania adnotacji: {e}", file=sys.stderr)
+            except Exception:
+                pass
+
+    def _on_chart_hover(self, event):
+        """Obsługuje najechanie myszą nad wykresem i wyświetla dymek ze szczegółami sprzedaży."""
+        try:
+            if getattr(self, '_chart_points', None) is None or not self._chart_points:
+                return
+            if event.inaxes != self.ax:
+                if self._hover_annot and self._hover_annot.get_visible():
+                    self._hover_annot.set_visible(False)
+                    self.chart_canvas.draw_idle()
+                return
+
+            # Znajdź najbliższy punkt w przestrzeni pikselowej
+            # Zamień wszystkie punkty na współrzędne ekranu jeden raz na zdarzenie
+            import numpy as np
+            # Konwersja X do wartości numerycznych jeśli to daty (datetime)
+            if isinstance(self._chart_points[0][0], datetime.datetime):
+                xs = [mdates.date2num(x) for x, _ in self._chart_points]
+            else:
+                xs = [x for x, _ in self._chart_points]
+            ys = [y for _, y in self._chart_points]
+            pts_data = np.column_stack([xs, ys])
+            xys_disp = self.ax.transData.transform(pts_data)
+            ex, ey = event.x, event.y
+            # Oblicz odległość euklidesową do każdego punktu
+            pts = np.asarray(xys_disp)
+            dists = np.hypot(pts[:, 0] - ex, pts[:, 1] - ey)
+            idx = int(np.argmin(dists))
+            min_dist = float(dists[idx])
+            if min_dist <= getattr(self, '_hover_threshold_px', 10):
+                x, y = self._chart_points[idx]
+                rec = None
+                try:
+                    rec = self._chart_records[idx]
+                except Exception:
+                    pass
+                # Pobierz symbol waluty z kontrolera
+                currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+                # Y jest już skonwertowane w wykresie, więc używamy go bezpośrednio
+                price_txt = f"{y:.2f} {currency_symbol}" if y is not None else "N/A"
+                # Tekst dymka
+                if isinstance(x, datetime.datetime):
+                    dt_str = x.strftime('%Y-%m-%d %H:%M')
+                else:
+                    try:
+                        dt = mdates.num2date(x)
+                        dt_str = dt.strftime('%Y-%m-%d %H:%M')
+                    except Exception:
+                        dt_str = str(x)
+                price_txt = f"{y:.2f} {currency_symbol}" if y is not None else "N/A"
+                # Jeśli mamy oryginalny rekord, użyj jego pola sale_date_str jeżeli istnieje
+                if rec and isinstance(rec, dict):
+                    dt_str = rec.get('sale_date_str', dt_str)
+                text = f"Data: {dt_str}\nCena: {price_txt}"
+                # Ustawienie pozycji adnotacji i dynamiczna korekta, aby dymek nie wychodził poza płótno
+                # 1) pozycja bazowa
+                self._hover_annot.xy = (x, y)
+                # 2) ustaw bazowe przesunięcie i wyrównanie
+                off_x, off_y = 12, 12
+                ha, va = 'left', 'bottom'
+                self._hover_annot.set_position((off_x, off_y))
+                try:
+                    self._hover_annot.set_ha(ha)
+                    self._hover_annot.set_va(va)
+                except Exception:
+                    pass
+                # 3) Oblicz, czy dymek wyjeżdża poza canvas – użyj rzeczywistego bbox adnotacji
+                try:
+                    canvas = self.chart_canvas.get_tk_widget()
+                    canvas_w = max(1, int(canvas.winfo_width()))
+                    canvas_h = max(1, int(canvas.winfo_height()))
+                    pad_px = 4
+                    # renderer może nie być dostępny bez narysowania; spróbuj go pobrać
+                    renderer = None
+                    try:
+                        renderer = self.fig.canvas.get_renderer()
+                    except Exception:
+                        pass
+                    if renderer is None:
+                        try:
+                            # jednorazowy rysunek, aby renderer istniał
+                            self.chart_canvas.draw()
+                            renderer = self.fig.canvas.get_renderer()
+                        except Exception:
+                            renderer = None
+                    if renderer is not None:
+                        bbox = self._hover_annot.get_window_extent(renderer=renderer)
+                        need_flip_x = bbox.x1 > canvas_w - pad_px
+                        need_flip_y_top = bbox.y1 > canvas_h - pad_px
+                        need_flip_y_bottom = bbox.y0 < pad_px
+                        # Flip w poziomie, jeśli potrzeba
+                        if need_flip_x:
+                            off_x = -12
+                            ha = 'right'
+                        # Flip w pionie w zależności od strony, która wychodzi
+                        if need_flip_y_top:
+                            off_y = -12
+                            va = 'top'
+                        elif need_flip_y_bottom:
+                            off_y = 12
+                            va = 'bottom'
+                        # zastosuj korekty
+                        try:
+                            self._hover_annot.set_position((off_x, off_y))
+                            self._hover_annot.set_ha(ha)
+                            self._hover_annot.set_va(va)
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+                self._hover_annot.set_text(text)
+                self._hover_annot.set_visible(True)
+                # Podświetl aktywny punkt zieloną kropką nad nim
+                try:
+                    if hasattr(self, '_hover_dot') and self._hover_dot is not None:
+                        sx = mdates.date2num(x) if isinstance(x, datetime.datetime) else x
+                        self._hover_dot.set_offsets([[sx, y]])
+                        self._hover_dot.set_visible(True)
+                except Exception:
+                    pass
+                self.chart_canvas.draw_idle()
+            else:
+                if self._hover_annot and self._hover_annot.get_visible():
+                    self._hover_annot.set_visible(False)
+                    self.chart_canvas.draw_idle()
+                # Ukryj kropkę-jeśli była widoczna
+                try:
+                    if hasattr(self, '_hover_dot') and self._hover_dot is not None and self._hover_dot.get_visible():
+                        self._hover_dot.set_visible(False)
+                        self.chart_canvas.draw_idle()
+                except Exception:
+                    pass
+        except Exception as e:
+            # Nie blokuj UI w razie problemów z kursorem
+            try:
+                print(f"Błąd hover tooltip: {e}", file=sys.stderr)
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------------
+    # FUNKCJE BUDOWANIA WIDOKU (BEZ ZMIAN)
+    # ------------------------------------------------------------------
+    def _create_history_treeview(self, parent_frame):
+        # Wersja bez 'quantity'
+        columns = ("Typ", "Jakość", "Skórka", "Cena", "Data")
+        tree = ttk.Treeview(parent_frame, columns=columns, show='headings', height=10)
+        
+        tree.column("Typ", width=80, anchor=tk.W)
+        tree.column("Jakość", width=100, anchor=tk.W)
+        tree.column("Skórka", width=250, anchor=tk.W)
+        tree.column("Cena", width=100, anchor=tk.E)
+        tree.column("Data", width=150, anchor=tk.W)
+
+        tree.heading("Typ", text="Typ")
+        tree.heading("Jakość", text="Jakość")
+        tree.heading("Skórka", text="Nazwa skórki")
+        tree.heading("Cena", text="Cena Sprzedaży", command=lambda: self._sort_history('price'))
+        tree.heading("Data", text="Data Sprzedaży", command=lambda: self._sort_history('sale_timestamp'))
+        
+        return tree
+        
+    def _fill_listings(self):
+        for widget in self.listings_section.winfo_children():
+            widget.destroy()
+        # Ustal cache i bieżącą stronę/dane
+        if not self._page_cache:
+            initial = self.listings_data.get('listings', [])
+            self._page_cache[0] = initial
+            self._all_listings = initial
+        else:
+            self._all_listings = self._page_cache.get(self.current_page, [])
+        # Używaj bieżącej wartości z listings_data aby uniknąć rozjazdu z etykietami/metadanymi
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+
+        info_frame = ttk.Frame(self.listings_section)
+        info_frame.pack(fill='x', padx=5, pady=5)
+
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+
+        if total_count == 0 or not self._all_listings:
+            ttk.Label(info_frame, text="⛔ Brak aktualnych ofert sprzedaży na rynku.", foreground='red').pack(fill='x')
+            # Pokaż ostatnią zarejestrowaną sprzedaż z historii, jeśli dostępna
+            try:
+                if self.history_data:
+                    latest_sale = max(self.history_data, key=lambda r: r.get('sale_timestamp', 0))
+                    sale_date = latest_sale.get('sale_date_str', '-')
+                    sale_price = latest_sale.get('price', None)
+                    if sale_price is not None:
+                        # Konwertuj tylko jeśli dane NIE są z API
+                        if self._history_from_api:
+                            price_display = sale_price
+                        else:
+                            price_display = self._convert_price(sale_price)
+                        ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}, cena: {price_display:.2f} {currency_symbol}", foreground='gray').pack(anchor='w')
+                    else:
+                        ttk.Label(info_frame, text=f"Ostatnia sprzedaż: {sale_date}", foreground='gray').pack(anchor='w')
+                else:
+                    ttk.Label(info_frame, text="Brak danych o ostatniej sprzedaży.", foreground='gray').pack(anchor='w')
+            except Exception as e:
+                print(f"Błąd prezentacji ostatniej sprzedaży: {e}", file=sys.stderr)
+            return
+
+        ttk.Label(info_frame, text=f"Łącznie ofert: {total_count}.").pack(anchor='w')
+        lp = self.listings_data.get('lowest_price')
+        lp_float = self.listings_data.get('lowest_price_float')
+        # Dynamiczna konwersja waluty dla najniższej oferty
+        currency = getattr(self.controller, 'currency', 'PLN')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+        if lp_float is not None:
+            lp_converted = lp_float * rate
+            ttk.Label(info_frame, text=f"Najniższa oferta: {lp_converted:.2f} {currency_symbol}", foreground='green').pack(anchor='w')
+        elif lp:
+            # Spróbuj sparsować liczbę z tekstu i przeliczyć
+            import re
+            match = re.match(r"([0-9]+(?:[.,][0-9]+)?)", str(lp))
+            if match:
+                try:
+                    lp_val = float(match.group(1).replace(",", "."))
+                    lp_converted = lp_val * rate
+                    ttk.Label(info_frame, text=f"Najniższa oferta: {lp_converted:.2f} {currency_symbol}", foreground='green').pack(anchor='w')
+                except Exception:
+                    ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
+            else:
+                ttk.Label(info_frame, text=f"Najniższa oferta: {lp}", foreground='green').pack(anchor='w')
+
+        # Nawigacja stron
+        nav_frame = ttk.Frame(self.listings_section)
+        nav_frame.pack(fill='x', padx=5)
+        first_btn = ttk.Button(nav_frame, text="⏮ Pierwsza", command=lambda: self._goto_page(0))
+        prev_btn = ttk.Button(nav_frame, text="◀ Poprzednie", command=self._prev_page)
+        next_btn = ttk.Button(nav_frame, text="Następne ▶", command=self._next_page)
+        last_btn = ttk.Button(nav_frame, text="Ostatnia ⏭", command=self._goto_last_page)
+        first_btn.pack(side='left')
+        prev_btn.pack(side='left', padx=(5,0))
+        last_btn.pack(side='right')
+        next_btn.pack(side='right', padx=(0,5))
+        self.page_label = ttk.Label(nav_frame, text="Strona 1")
+        self.page_label.pack(side='top', pady=2)
+
+        ttk.Separator(self.listings_section, orient='horizontal').pack(fill='x', padx=5, pady=4)
+        # Stały obszar listy ofert + overlay
+        container = tk.Frame(self.listings_section, width=self._listings_width, height=self._listings_height)
+        container.pack_propagate(False)
+        container.pack(fill='x', padx=5)
+        listings_frame = ttk.Frame(container)
+        listings_frame.pack(fill='both', expand=True)
+        # zapamiętaj kontener do overlay
+        self._listings_container = container
+        listings_frame.grid_columnconfigure(0, weight=1)
+        listings_frame.grid_columnconfigure(1, weight=1)
+        listings_frame.grid_columnconfigure(2, weight=1)
+        ttk.Label(listings_frame, text="Lp.", font=('Arial', 9, 'bold')).grid(row=0, column=0, padx=5, sticky='w')
+        ttk.Label(listings_frame, text="Cena Końcowa", font=('Arial', 9, 'bold')).grid(row=0, column=1, padx=5, sticky='e')
+        ttk.Label(listings_frame, text="Prowizja Steam", font=('Arial', 9, 'bold')).grid(row=0, column=2, padx=5, sticky='e')
+
+        self._render_current_page_rows(listings_frame)
+        # Prefetch kolejnej strony jeśli istnieje
+        self._maybe_prefetch_next()
+        self.inner_frame.update_idletasks()
+        self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
+
+    def _maybe_prefetch_next(self):
+        """Prefetch kolejnej strony jeśli jej nie ma w cache i istnieje."""
+        try:
+            item_key = self._cache_item_key or self.current_item_name
+            total_count = self.listings_data.get('total_count', 0)
+            next_start = (self.current_page + 1) * self.page_size
+            if next_start >= total_count:
+                return
+            next_page = self.current_page + 1
+            if next_page in self._page_cache or next_page in self._pages_loading:
+                return
+            self._pages_loading.add(next_page)
+            def worker():
+                data = steam_market.get_market_listings_page(self.current_item_name, self.controller.login_cookie, start=next_start, count=self.page_size)
+                # Zapis tylko jeśli nadal oglądamy ten sam przedmiot
+                if data and data.get('listings') and self._cache_item_key == item_key:
+                    self._page_cache[next_page] = data['listings']
+                    try:
+                        self.controller.result_queue.put({'status': 'log', 'message': f'Prefetch: strona {next_page + 1} gotowa.'})
+                    except Exception:
+                        pass
+                self._pages_loading.discard(next_page)
+            import threading
+            threading.Thread(target=worker, daemon=True).start()
+        except Exception as e:
+            print(f"Prefetch błąd: {e}", file=sys.stderr)
+
+    def _render_current_page_rows(self, parent):
+        # Usuń stare wiersze (zostaw nagłówek row=0)
+        for child in parent.winfo_children():
+            info = child.grid_info()
+            if info.get('row') and info.get('row') != 0:
+                child.destroy()
+
+        # Pobierz symbol waluty i kurs z kontrolera
+        currency = getattr(self.controller, 'currency', 'PLN')
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+
+        # Wyświetlamy bieżącą załadowaną stronę (self._all_listings reprezentuje stronę)
+        subset = self._all_listings
+        for idx, listing in enumerate(subset, start=1):
+            price = listing.get('price_float')
+            fee = listing.get('fee')
+            # Dynamiczna konwersja ceny i prowizji na wybraną walutę
+            price_converted = price * rate if price is not None else None
+            fee_converted = fee * rate if fee is not None else None
+            price_text = f"{price_converted:.2f} {currency_symbol}" if price_converted is not None else "N/A"
+            fee_text = f"{fee_converted:.2f} {currency_symbol}" if fee_converted is not None else "N/A"
+            base_index = self.current_page * self.page_size
+            ttk.Label(parent, text=str(base_index + idx)).grid(row=idx, column=0, padx=5, sticky='w')
+            ttk.Label(parent, text=price_text, foreground='green').grid(row=idx, column=1, padx=5, sticky='e')
+            ttk.Label(parent, text=fee_text).grid(row=idx, column=2, padx=5, sticky='e')
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        total_pages = max(1, (total_count + self.page_size - 1) // self.page_size)
+        self.page_label.config(text=f"Strona {self.current_page + 1} / {total_pages}")
+        # Aktualizacja etykiety "Łącznie ofert" następuje przy pełnym przeładowaniu (_fill_listings)
+
+    def _next_page(self):
+        if getattr(self, '_loading_page', False):
+            return
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        target_page = self.current_page + 1
+        start = target_page * self.page_size
+        if start >= total_count:
+            return  # brak dalszych stron
+        # Preferuj cache – jeśli mamy, przełącz lokalnie
+        if target_page in self._page_cache:
+            self._goto_page(target_page)
+        else:
+            self._fetch_page(start)
+
+    def _prev_page(self):
+        if getattr(self, '_loading_page', False):
+            return
+        if self.current_page > 0:
+            target_page = self.current_page - 1
+            # Preferuj cache
+            if target_page in self._page_cache:
+                self._goto_page(target_page)
+            else:
+                start = target_page * self.page_size
+                self._fetch_page(start)
+
+    def _goto_last_page(self):
+        if getattr(self, '_loading_page', False):
+            return
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        last_page = max(0, (total_count - 1) // self.page_size)
+        if last_page == self.current_page:
+            return
+        # Preferuj cache jeśli już pobrana
+        if last_page in self._page_cache:
+            self._goto_page(last_page)
+        else:
+            self._fetch_page(last_page * self.page_size)
+
+    def _goto_page(self, page_idx):
+        if getattr(self, '_loading_page', False):
+            return
+        total_count = self.listings_data.get('total_count', len(self._all_listings))
+        max_page = max(0, (total_count - 1) // self.page_size)
+        if page_idx < 0 or page_idx > max_page:
+            return
+        if page_idx == self.current_page:
+            return
+        # Jeśli mamy cache — przełącz lokalnie, bez sieci
+        if page_idx in self._page_cache:
+            self.current_page = page_idx
+            self._all_listings = self._page_cache.get(self.current_page, [])
+            try:
+                # log: przejście na stronę z cache
+                next_page = self.current_page + 1
+                prefetch_ready = next_page in self._page_cache
+                self.controller.result_queue.put({'status': 'log', 'message': f'Oferty: strona {self.current_page + 1} z cache. Prefetch następnej: {"TAK" if prefetch_ready else "NIE"}.'})
+            except Exception:
+                pass
+            self._fill_listings()
+        else:
+            self._fetch_page(page_idx * self.page_size)
+
+    def _fetch_page(self, start):
+        self._loading_page = True
+        self._show_overlay("Ładowanie…")
+        item_key = self._cache_item_key
+
+        def worker():
+            data = None
+            try:
+                data = steam_market.get_market_listings_page(self.current_item_name, self.controller.login_cookie, start=start, count=self.page_size)
+            except Exception as e:
+                print(f"Błąd pobierania strony ofert: {e}", file=sys.stderr)
+            def apply():
+                self._loading_page = False
+                # Jeśli użytkownik przełączył przedmiot w trakcie pobierania strony – porzuć
+                if self._cache_item_key != item_key:
+                    self._hide_overlay()
+                    return
+                if data is None:
+                    ttk.Label(self.listings_section, text="Błąd pobierania strony.", foreground='red').pack(pady=5)
+                    return
+                page_idx = start // self.page_size
+                self._all_listings = data.get('listings', [])
+                # log do SearchView: strona pobrana z sieci
+                try:
+                    self.controller.result_queue.put({'status': 'log', 'message': f'Oferty: załadowano stronę { (start // self.page_size) + 1 } z sieci.'})
+                except Exception:
+                    pass
+                # zapis do cache tej strony
+                self._page_cache[page_idx] = self._all_listings
+                self.listings_data['listings'] = self._all_listings
+                self.listings_data['total_count'] = data.get('total_count', self.listings_data.get('total_count', len(self._all_listings)))
+                self.listings_data['lowest_price'] = data.get('lowest_price', self.listings_data.get('lowest_price'))
+                self.listings_data['lowest_price_float'] = data.get('lowest_price_float', self.listings_data.get('lowest_price_float'))
+                self.current_page = page_idx
+                self._hide_overlay()
+                self._fill_listings()
+            self.controller.root.after(0, apply)
+
+        import threading
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_overlay(self, text="Ładowanie…"):
+        try:
+            if getattr(self, '_listings_container', None) is None:
+                return
+            if self._overlay_canvas is not None:
+                try:
+                    self._overlay_canvas.destroy()
+                except Exception:
+                    pass
+            canvas = tk.Canvas(self._listings_container, width=self._listings_width, height=self._listings_height, highlightthickness=0, bd=0)
+            canvas.place(x=0, y=0)
+            # prostokąt z wzorem stipple, efekt "przyciemnienia"
+            canvas.create_rectangle(0, 0, self._listings_width, self._listings_height, fill="gray", stipple=self._overlay_stipple, outline="")
+            canvas.create_text(self._listings_width//2, self._listings_height//2, text=text, fill="white", font=("Arial", 12, "bold"))
+            self._overlay_canvas = canvas
+        except Exception as e:
+            print(f"Overlay błąd: {e}", file=sys.stderr)
+
+    def _hide_overlay(self):
+        try:
+            if self._overlay_canvas is not None:
+                self._overlay_canvas.destroy()
+                self._overlay_canvas = None
+        except Exception:
+            pass
+
+    def _fill_summary(self):
+        history = self.history_data
+        if not history:
+            ttk.Label(self.summary_section, text="Brak danych historycznych do podsumowania.").pack(pady=5, padx=5)
+            return
+            
+        lowest_record = min(history, key=operator.itemgetter('price'))
+        highest_record = max(history, key=operator.itemgetter('price'))
+        
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        
+        # Konwertuj ceny tylko jeśli dane NIE są z API
+        if self._history_from_api:
+            lowest_price_display = lowest_record['price']
+            highest_price_display = highest_record['price']
+        else:
+            lowest_price_display = self._convert_price(lowest_record['price'])
+            highest_price_display = self._convert_price(highest_record['price'])
+        
+        summary_grid = ttk.Frame(self.summary_section, padding=5)
+        summary_grid.pack(fill='x', padx=5, pady=5)
+        summary_grid.grid_columnconfigure(1, weight=1)
+        summary_grid.grid_columnconfigure(3, weight=1)
+        row = 0
+        
+        ttk.Label(summary_grid, text="Najniższa cena historyczna:").grid(row=row, column=0, sticky='w', padx=5)
+        ttk.Label(summary_grid, text=f"{lowest_price_display:.2f} {currency_symbol}", font=('Arial', 10, 'bold'), foreground='green').grid(row=row, column=1, sticky='w')
+        ttk.Label(summary_grid, text=f"Data: {lowest_record['sale_date_str']}").grid(row=row, column=2, padx=10, sticky='w')
+        row += 1
+
+        ttk.Label(summary_grid, text="Najwyższa cena historyczna:").grid(row=row, column=0, sticky='w', padx=5)
+        ttk.Label(summary_grid, text=f"{highest_price_display:.2f} {currency_symbol}", font=('Arial', 10, 'bold'), foreground='red').grid(row=row, column=1, sticky='w')
+        ttk.Label(summary_grid, text=f"Data: {highest_record['sale_date_str']}").grid(row=row, column=2, padx=10, sticky='w')
+        row += 1
+        
+        self.inner_frame.update_idletasks()
+        self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
+
+
+    def _fill_history_table(self):
+        """Wypełnia Treeview danymi historycznymi z dynamiczną konwersją waluty."""
+        self.history_tree.delete(*self.history_tree.get_children())
+
+        # Pobierz symbol waluty i kurs z kontrolera
+        currency = getattr(self.controller, 'currency', 'PLN')
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+
+        for record in self.history_data:
+            # Dynamiczna konwersja ceny na wybraną walutę
+            price = record.get('price')
+            price_converted = price * rate if price is not None else None
+            self.history_tree.insert("", tk.END, values=(
+                f"{record['item_type']}",
+                record['item_wear'] or 'Brak',
+                record['market_hash_name'],
+                f"{price_converted:.2f} {currency_symbol}" if price_converted is not None else "N/A",
+                record['sale_date_str']
+            ))
+
+        self.inner_frame.update_idletasks()
+        self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
+        
+    def _toggle_history_table(self):
+        """Przełącza widoczność tabeli historycznej."""
+        if self.history_expanded.get():
+            self.history_tree.pack_forget()
+            self.history_expanded.set(False)
+            self.history_toggle_button.config(text="Rozwiń Tabela Danych")
+        else:
+            if not self.history_tree.get_children():
+                self._initial_history_sort()
+                self._fill_history_table()
+                
+            self.history_tree.pack(fill='both', expand=True, padx=5, pady=5)
+            self.history_expanded.set(True)
+            self.history_toggle_button.config(text="Zwiń Tabela Danych")
+            
+        self.inner_frame.update_idletasks()
+        self.scrollable_content.config(scrollregion=self.scrollable_content.bbox("all"))
+
+    # ------------------------------------------------------------------
+    # GŁÓWNA METODA POKAZUJĄCA WYNIKI
+    # ------------------------------------------------------------------
+    def show_results(self, item_name, history_data, listings_data, fresh_history=None, currency_code=None):
+        """Aktualizuje widok po pomyślnym pobraniu danych.
+        
+        Args:
+            fresh_history: Świeże dane z API w aktualnej walucie (opcjonalne)
+            currency_code: Kod waluty użytej przy pobieraniu danych
+        """
+        # Reset cache dla nowego przedmiotu (uniknięcie przenikania ofert starego)
+        self._cache_item_key = item_name
+        self._page_cache.clear()
+        self._pages_loading.clear()
+        self._all_listings = []
+        self._total_count = 0
+        if getattr(self, '_overlay_canvas', None) is not None:
+            try:
+                self._overlay_canvas.destroy()
+            except Exception:
+                pass
+            self._overlay_canvas = None
+        self.current_item_name = item_name
+        # Użyj świeżych danych z API jeśli dostępne, w przeciwnym razie dane z bazy
+        self.history_data = fresh_history if fresh_history else history_data
+        self._history_from_api = bool(fresh_history)  # Czy dane są z API (już w poprawnej walucie)
+        self.listings_data = listings_data
+        self.current_page = 0
+        
+        self.title_label.config(text=f"Wyniki dla: {item_name}")
+        
+        # --- POPRAWKA: Sprawdzamy czy listings_data nie jest None ---
+        if listings_data is None:
+            listings_data = {} # Zapewnij pusty słownik, aby .get() nie crashował
+        # --- KONIEC POPRAWKI ---
+
+        # Pobierz symbol waluty z kontrolera
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+
+        lowest_price = listings_data.get('lowest_price')
+        lowest_price_float = listings_data.get('lowest_price_float')
+        lp_text = f"{lowest_price_float:.2f} {currency_symbol}" if lowest_price_float is not None else (lowest_price or "N/A")
+        
+        self._clear_sections()
+        
+        # Tworzymy etykietę podsumowania tutaj, po wyczyszczeniu
+        self._create_summary_label(lp_text)
+        
+        # Jeśli brak historii oraz brak cookie – pokaż komunikat zamiast pustego wykresu
+        if (not history_data) and (not getattr(self.controller, 'login_cookie', None)):
+            try:
+                self.ax.clear()
+                self.ax.text(0.5, 0.5, 'Brak historii cen (wymagane cookie).',
+                             horizontalalignment='center', verticalalignment='center',
+                             transform=self.ax.transAxes, color='white')
+                self.chart_canvas.draw()
+            except Exception:
+                pass
+        else:
+            self._plot_chart('all') # Narysuj wykres "Ogółem"
+        self._fill_listings()
+        self._fill_summary()
+        # Spróbuj pobrać i wyświetlić obrazek: najpierw z cache, potem z sieci
+        image_url = listings_data.get('image_url') if isinstance(listings_data, dict) else None
+        if image_url:
+            # Cache hit
+            cached_img = self._image_cache.get(image_url)
+            if cached_img is not None:
+                try:
+                    self._current_item_image = cached_img
+                    self._image_label.config(image=self._current_item_image, text='')
+                    self._image_label.pack_configure(pady=(5,8))
+                    self.scrollable_content.yview_moveto(0)
+                except Exception as e:
+                    print(f"Błąd ustawiania obrazka z cache: {e}", file=sys.stderr)
+            else:
+                # Pobierz asynchronicznie; PhotoImage twórz w wątku głównym
+                def download_and_set():
+                    try:
+                        import requests
+                        from PIL import Image
+                        from io import BytesIO
+                        resp = requests.get(image_url, timeout=15)
+                        if resp.status_code == 200 and resp.content:
+                            img = Image.open(BytesIO(resp.content))
+                            # Zmień rozmiar na większą wysokość (np. 220px) zachowując proporcje
+                            max_h = 220
+                            w, h = img.size
+                            if h > max_h:
+                                new_w = int(w * (max_h / float(h)))
+                                img = img.resize((new_w, max_h), Image.LANCZOS)
+                            def apply():
+                                try:
+                                    from PIL import ImageTk
+                                    tkimg = ImageTk.PhotoImage(img)
+                                    # zapisz do cache (LRU)
+                                    self._image_cache[image_url] = tkimg
+                                    self._image_cache.move_to_end(image_url)
+                                    if len(self._image_cache) > self._image_cache_limit:
+                                        self._image_cache.popitem(last=False)
+                                    self._current_item_image = tkimg
+                                    self._image_label.config(image=self._current_item_image, text='')
+                                    self._image_label.pack_configure(pady=(5,8))
+                                    self.scrollable_content.yview_moveto(0)
+                                except Exception as e:
+                                    print(f"Błąd tworzenia/ustawiania PhotoImage: {e}", file=sys.stderr)
+                            self.controller.root.after(0, apply)
+                    except Exception as e:
+                        print(f"Ostrzeżenie: nie udało się pobrać obrazka: {e}", file=sys.stderr)
+                import threading
+                threading.Thread(target=download_and_set, daemon=True).start()
+        else:
+            # brak obrazka – pokaż placeholder
+            try:
+                self._image_label.config(image='', text='(Brak obrazka)')
+                self._current_item_image = None
+            except Exception:
+                pass
+        # Przygotuj tabelę historii (nie pokazujemy dopóki użytkownik nie rozwinie)
+        self._initial_history_sort()
+        
+        self.scrollable_content.yview_moveto(0)
+
+    # --- PRZYWRÓCONA FUNKCJA ---
+    def _create_summary_label(self, lowest_price_text):
+        """Tworzy etykietę podsumowania (tylko najniższa oferta) z dynamiczną konwersją waluty."""
+        for widget in self.summary_section.winfo_children():
+            widget.destroy()
+
+        # Pobierz symbol waluty i kurs z kontrolera
+        currency = getattr(self.controller, 'currency', 'PLN')
+        currency_symbol = getattr(self.controller, 'currency_symbol', 'zł')
+        rate = EXCHANGE_RATES.get(currency, 1.0)
+
+        # lowest_price_text może być floatem lub stringiem, spróbuj sparsować liczbę
+        price_val = None
+        import re
+        match = re.match(r"([0-9]+(?:[.,][0-9]+)?)", str(lowest_price_text))
+        if match:
+            try:
+                price_val = float(match.group(1).replace(",", "."))
+            except Exception:
+                price_val = None
+        if price_val is not None:
+            price_converted = price_val * rate
+            summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {price_converted:.2f} {currency_symbol}")
+        else:
+            summary_label = ttk.Label(self.summary_section, text=f"Najniższa oferta: {lowest_price_text}")
+        summary_label.pack(side='left', padx=5, pady=5)
+
+    # --- SORTOWANIE HISTORII ---
+    def _initial_history_sort(self):
+        """Ustaw wstępne sortowanie: daty malejąco (najnowsze)."""
+        if not self.history_data:
+            return
+        # daty malejąco (najnowsze pierwsze)
+        self.history_data.sort(key=lambda r: r.get('sale_timestamp', 0), reverse=True)
+        self._history_last_sorted = 'sale_timestamp'
+        # zaktualizuj nagłówek daty
+        self._update_history_headers(active='sale_timestamp', ascending=False)  # descending = newest first
+
+    def _sort_history(self, field):
+        """Sortuje historię po wskazanym polu. Kliknięcie przełącza kierunek."""
+        if not self.history_data:
+            return
+        if field not in ('price', 'sale_timestamp'):
+            return
+        ascending = self._history_sort_states[field]
+        if field == 'price':
+            # cena: ascending True => rosnąco (najniższa pierwsza)
+            self.history_data.sort(key=lambda r: r.get('price', 0), reverse=not ascending)
+        else:  # sale_timestamp
+            # data: ascending True => newest first (timestamp descending)
+            self.history_data.sort(key=lambda r: r.get('sale_timestamp', 0), reverse=ascending)
+        # toggle kierunek na następną interakcję
+        self._history_sort_states[field] = not ascending
+        self._history_last_sorted = field
+        # aktualizuj nagłówki strzałkami
+        # dla daty: ascending True oznacza że PREVIOUS click zrobił newest first, aktualny sort jest zrobiony według poprzedniego ascending flagi
+        # po sortowaniu chcemy wyświetlić kierunek użyty, czyli 'ascending' variable
+        self._update_history_headers(active=field, ascending=ascending if field=='price' else (not ascending))
+        self._fill_history_table()
+
+    def _update_history_headers(self, active=None, ascending=True):
+        """Aktualizuje tekst nagłówków z symbolami kierunku sortowania."""
+        try:
+            price_arrow = ''
+            date_arrow = ''
+            if active == 'price':
+                price_arrow = ' ↑' if ascending else ' ↓'
+            elif active == 'sale_timestamp':
+                # ascending (for display) = chronologicznie rosnąco (starsze -> nowsze); descending = najnowsze pierwsze
+                date_arrow = ' ↑' if ascending else ' ↓'
+            self.history_tree.heading("Cena", text=f"Cena Sprzedaży{price_arrow}", command=lambda: self._sort_history('price'))
+            self.history_tree.heading("Data", text=f"Data Sprzedaży{date_arrow}", command=lambda: self._sort_history('sale_timestamp'))
+        except Exception as e:
+            print(f"Błąd aktualizacji nagłówków sortowania: {e}", file=sys.stderr)

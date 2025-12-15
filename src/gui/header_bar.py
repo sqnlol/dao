@@ -42,7 +42,7 @@ class HeaderBar:
     def _create_header(self):
         """Tworzy nagłówek."""
         self.header = tk.Frame(self.parent, bg='#1e1e1e')
-        self.header.grid(row=0, column=0, sticky='ew', padx=16, pady=(12, 0))
+        self.header.grid(row=0, column=0, sticky='ew', padx=0)
         self.header.grid_columnconfigure(2, weight=1)
 
         # Logo
@@ -53,7 +53,7 @@ class HeaderBar:
                 img.thumbnail((48, 48))
                 self._header_logo = ImageTk.PhotoImage(img)
                 logo_lbl = tk.Label(self.header, image=self._header_logo, bg='#1e1e1e')
-                logo_lbl.grid(row=0, column=0, padx=(0, 12))
+                logo_lbl.grid(row=0, column=0, padx=(12, 12), pady=6)
         except Exception:
             pass
 
@@ -102,9 +102,9 @@ class HeaderBar:
         # Użyj współdzielonych danych avatara lub załaduj
         self._setup_avatar()
 
-        # Niebieska linia pozioma
+        # Niebieska linia pozioma pod headerem
         separator = tk.Frame(self.parent, bg='#5588cc', height=2)
-        separator.grid(row=0, column=0, sticky='sew', padx=0, pady=(70, 0))
+        separator.grid(row=0, column=0, sticky='sew', padx=0, pady=(60, 0))
 
     def _setup_avatar(self):
         """Ustawia avatar - używa cache lub ładuje nowy."""

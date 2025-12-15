@@ -68,7 +68,7 @@ class SearchView:
 
         # ===================== NAGŁÓWEK (row 0) =====================
         header = tk.Frame(self.frame, bg='#1e1e1e')
-        header.grid(row=0, column=0, sticky='ew', padx=16, pady=(12, 0))
+        header.grid(row=0, column=0, sticky='ew', padx=0)
         header.grid_columnconfigure(2, weight=1)
 
         # Logo placeholder (możesz zastąpić własnym obrazkiem)
@@ -81,7 +81,7 @@ class SearchView:
                 img.thumbnail((48, 48))
                 self._header_logo = ImageTk.PhotoImage(img)
                 logo_lbl = tk.Label(header, image=self._header_logo, bg='#1e1e1e')
-                logo_lbl.grid(row=0, column=0, padx=(0, 12))
+                logo_lbl.grid(row=0, column=0, padx=(12, 12), pady=6)
         except Exception:
             pass
 
@@ -125,9 +125,9 @@ class SearchView:
         # Spróbuj załadować avatar z URL
         self._load_avatar_async()
 
-        # Niebieska linia pozioma (z większym odstępem)
+        # Niebieska linia pozioma pod headerem
         separator = tk.Frame(self.frame, bg='#5588cc', height=2)
-        separator.grid(row=0, column=0, sticky='sew', padx=0, pady=(70, 0))
+        separator.grid(row=0, column=0, sticky='sew', padx=0, pady=(60, 0))
 
         # Ukryte elementy interfejsu starego (zachowane do kompatybilności)
         self.cookie_mode_label = tk.Label(self.frame, text="", bg='#1e1e1e', fg='#888888')
