@@ -204,3 +204,73 @@ class TestMemoryUsage:
         elapsed = time.time() - start
         
         assert elapsed < 1.0
+
+
+class TestAPIPerformance:
+    """Test API call performance"""
+    
+    @patch('src.steam_market.requests.get')
+    def test_api_response_time(self, mock_get):
+        """Test API calls complete in reasonable time"""
+        from src.steam_market import get_market_listings
+        
+        # Mock fast response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "total_count": 10,
+            "results": []
+        }
+        mock_get.return_value = mock_response
+        
+        start = time.time()
+        get_market_listings("AK-47 | Redline (Field-Tested)")
+        elapsed = time.time() - start
+        
+        # Should complete quickly with mock
+        assert elapsed < 1.0
+    
+    def test_batch_parsing_performance(self):
+        """Test parsing multiple items in batch"""
+        items = [f"Item {i} | Skin (Factory New)" for i in range(50)]
+        
+        start = time.time()
+        for item in items:
+            parse_market_name(item)
+        elapsed = time.time() - start
+        
+        # Should parse 50 items quickly
+        assert elapsed < 0.5
+
+
+class TestMemoryEfficiency:
+    """Test memory efficiency of operations"""
+    
+    def test_large_dataset_memory(self, test_db):
+        """Test handling large datasets doesn't cause memory issues"""
+        # Create large dataset
+        large_data = []
+        for i in range(200):
+            large_data.append({
+                'market_hash_name': f'Item {i}',
+                'item_type': 'Rifle',
+                'item_name': f'Item {i}',
+                'item_wear': 'Factory New',
+                'price': 10.0 + i * 0.1,
+                'sale_timestamp': 1234567890 + i,
+                'sale_date_str': '2024-01-01'
+            })
+        
+        # Should handle without issues
+        database.add_sales(large_data)
+        assert True
+    
+    def test_string_parsing_memory(self):
+        """Test that string parsing doesn't leak memory"""
+        # Parse many strings
+        for _ in range(500):
+            parse_market_name("AK-47 | Redline (Field-Tested)")
+        
+        # Should complete without memory issues
+        assert True

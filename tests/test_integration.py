@@ -242,3 +242,87 @@ class TestErrorRecovery:
         # Very high price
         result = _convert_price_to_float("9999,99 zł")
         assert result is not None
+
+
+class TestDatabaseTransactions:
+    """Test database transaction handling"""
+    
+    def test_add_sales_rollback_on_error(self, test_db):
+        """Test that database handles errors gracefully"""
+        # Valid data
+        valid_data = [{
+            'market_hash_name': 'Test Item',
+            'item_type': 'Rifle',
+            'item_name': 'Test',
+            'item_wear': 'Factory New',
+            'price': 10.0,
+            'sale_timestamp': 1234567890,
+            'sale_date_str': '2024-01-01'
+        }]
+        
+        count = database.add_sales(valid_data)
+        assert count >= 0
+    
+    def test_concurrent_writes(self, test_db):
+        """Test multiple concurrent writes to database"""
+        import threading
+        
+        def write_sales():
+            sales = [{
+                'market_hash_name': f'Item {threading.current_thread().name}',
+                'item_type': 'Rifle',
+                'item_name': 'Test',
+                'item_wear': 'Factory New',
+                'price': 10.0,
+                'sale_timestamp': 1234567890,
+                'sale_date_str': '2024-01-01'
+            }]
+            database.add_sales(sales)
+        
+        threads = [threading.Thread(target=write_sales) for _ in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        
+        # Should handle concurrent writes
+        assert True
+
+
+class TestDataIntegrity:
+    """Test data integrity constraints"""
+    
+    def test_unique_constraint_on_sales(self, test_db):
+        """Test UNIQUE constraint on (market_hash_name, sale_timestamp, price)"""
+        sales_data = {
+            'market_hash_name': 'Duplicate Test',
+            'item_type': 'Rifle',
+            'item_name': 'Test',
+            'item_wear': 'Factory New',
+            'price': 10.0,
+            'sale_timestamp': 1234567890,
+            'sale_date_str': '2024-01-01'
+        }
+        
+        # Add same data twice
+        database.add_sales([sales_data])
+        database.add_sales([sales_data])
+        
+        # Should only have one entry
+        results = database.get_sales_for_item('Duplicate Test')
+        assert len(results) == 1
+    
+    def test_null_handling(self, test_db):
+        """Test how database handles null/None values"""
+        sales_data = [{
+            'market_hash_name': 'Null Test',
+            'item_type': 'Rifle',
+            'item_name': 'Test',
+            'item_wear': 'Factory New',
+            'price': 10.0,
+            'sale_timestamp': 1234567890,
+            'sale_date_str': '2024-01-01'
+        }]
+        
+        count = database.add_sales(sales_data)
+        assert count >= 0

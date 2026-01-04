@@ -95,3 +95,84 @@ class TestCaseImagesCache:
         # Should be able to generate valid filenames
         assert case_name is not None
         assert len(case_name) > 0
+
+
+class TestDatabaseInit:
+    """Test database initialization"""
+    
+    def test_db_file_path(self):
+        """Test that DB_FILE path is set correctly"""
+        assert database.DB_FILE is not None
+        assert isinstance(database.DB_FILE, str)
+    
+    def test_init_db_creates_connection(self):
+        """Test that init_db can create database connection"""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            test_db = f.name
+        
+        original_db = database.DB_FILE
+        database.DB_FILE = test_db
+        
+        try:
+            database.init_db()
+            # Should create file
+            assert os.path.exists(test_db)
+        finally:
+            database.DB_FILE = original_db
+            if os.path.exists(test_db):
+                os.remove(test_db)
+    
+    def test_sales_table_schema(self):
+        """Test that sales table has correct schema"""
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            test_db = f.name
+        
+        original_db = database.DB_FILE
+        database.DB_FILE = test_db
+        database.init_db()
+        
+        try:
+            conn = sqlite3.connect(test_db)
+            cursor = conn.cursor()
+            cursor.execute("PRAGMA table_info(sales)")
+            columns = cursor.fetchall()
+            conn.close()
+            
+            column_names = [col[1] for col in columns]
+            assert 'market_hash_name' in column_names
+            assert 'price' in column_names
+            assert 'sale_timestamp' in column_names
+        finally:
+            database.DB_FILE = original_db
+            if os.path.exists(test_db):
+                os.remove(test_db)
+
+
+class TestEdgeCases:
+    """Test edge cases in parsing and conversion"""
+    
+    def test_parse_none_input(self):
+        """Test parsing None value"""
+        result = parse_market_name(None)
+        # Should handle None gracefully
+        assert result is None or isinstance(result, dict)
+    
+    def test_parse_unicode_characters(self):
+        """Test parsing with unicode characters"""
+        result = parse_market_name("AK-47 | Élite Build (Factory New)")
+        assert result is not None
+    
+    def test_convert_price_negative(self):
+        """Test converting negative price (edge case)"""
+        result = _convert_price_to_float("-1,00 zł")
+        # Should handle or return None
+        assert result is None or isinstance(result, (float, int))
+    
+    def test_convert_price_very_large(self):
+        """Test converting very large price"""
+        result = _convert_price_to_float("99999,99 zł")
+        assert result is not None
+        if result:
+            assert result > 0

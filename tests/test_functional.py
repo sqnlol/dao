@@ -148,3 +148,79 @@ class TestDataValidation:
         for price in prices:
             assert price >= 0
             assert price <= 100000  # Reasonable upper limit
+
+
+class TestUserWorkflows:
+    """Test complete user workflows"""
+    
+    def test_search_filter_sort_workflow(self):
+        """Test searching, filtering and sorting results"""
+        # Simulate user searching for items
+        search_results = [
+            {"name": "AK-47 | Redline", "price": 9.99},
+            {"name": "AK-47 | Phantom", "price": 15.50},
+            {"name": "AK-47 | Vulcan", "price": 25.00}
+        ]
+        
+        # Filter by price range
+        filtered = [r for r in search_results if r['price'] < 20.0]
+        assert len(filtered) == 2
+        
+        # Sort by price
+        sorted_results = sorted(search_results, key=lambda x: x['price'])
+        assert sorted_results[0]['price'] == 9.99
+    
+    def test_login_cookie_validation(self):
+        """Test login cookie format validation"""
+        valid_cookie = "steamLoginSecure=123456789%7C%7Cabcdef"
+        
+        # Should contain expected parts
+        assert "steamLoginSecure=" in valid_cookie
+        assert len(valid_cookie) > 20
+    
+    def test_result_pagination(self):
+        """Test paginating search results"""
+        # Simulate large result set
+        all_results = [{"id": i, "price": i * 1.0} for i in range(100)]
+        
+        # Page 1 (first 20)
+        page_size = 20
+        page_1 = all_results[:page_size]
+        assert len(page_1) == 20
+        assert page_1[0]['id'] == 0
+        
+        # Page 2
+        page_2 = all_results[page_size:page_size*2]
+        assert len(page_2) == 20
+        assert page_2[0]['id'] == 20
+
+
+class TestCurrencyHandling:
+    """Test handling of different currencies"""
+    
+    def test_pln_currency_parsing(self):
+        """Test PLN currency parsing"""
+        from src.steam_market import _convert_price_to_float
+        result = _convert_price_to_float("19,99 zł")
+        assert result is not None
+    
+    def test_eur_currency_parsing(self):
+        """Test EUR currency parsing"""
+        from src.steam_market import _convert_price_to_float
+        result = _convert_price_to_float("19,99 €")
+        assert result is not None
+    
+    def test_usd_currency_parsing(self):
+        """Test USD currency parsing"""
+        from src.steam_market import _convert_price_to_float
+        result = _convert_price_to_float("19.99 $")
+        assert result is not None
+    
+    def test_currency_symbol_removal(self):
+        """Test that currency symbols are handled"""
+        from src.steam_market import _convert_price_to_float
+        prices = ["10,50 zł", "10.50 €", "10.50 $"]
+        
+        for price_str in prices:
+            result = _convert_price_to_float(price_str)
+            assert result is not None

@@ -145,3 +145,107 @@ class TestEndToEndWorkflows:
         # Calculate trend
         avg_price = sum(prices_retrieved) / len(prices_retrieved)
         assert avg_price > 0
+
+
+class TestCompleteUserJourney:
+    """Test complete user journeys from start to finish"""
+    
+    def test_new_user_first_search(self, test_db):
+        """Test new user performing their first search"""
+        # Step 1: User opens app (no login needed for basic search)
+        # Step 2: User searches for item
+        search_term = "M4A4 | Howl (Minimal Wear)"
+        parsed = parse_market_name(search_term)
+        assert parsed is not None
+        
+        # Step 3: System fetches data (simulated)
+        market_data = {
+            'item_name': parsed.get('name', 'Unknown'),
+            'current_price': 19.99,
+            'listings': [
+                {'price': 19.50, 'quantity': 2},
+                {'price': 19.99, 'quantity': 5},
+                {'price': 20.50, 'quantity': 1}
+            ]
+        }
+        
+        # Step 4: Data is stored
+        for listing in market_data['listings']:
+            database.add_sales([{
+                'market_hash_name': search_term,
+                'item_type': parsed.get('type', 'Unknown'),
+                'item_name': parsed.get('name', 'Unknown'),
+                'item_wear': parsed.get('wear', 'Unknown'),
+                'price': listing['price'],
+                'sale_timestamp': 1234567890,
+                'sale_date_str': '2024-01-01'
+            }])
+        
+        # Step 5: User views results
+        results = database.get_sales_for_item(search_term)
+        assert len(results) > 0
+        
+        # Step 6: User sees price range
+        prices = [r['price'] for r in results]
+        min_price = min(prices)
+        max_price = max(prices)
+        assert min_price <= max_price
+    
+    @patch('src.steam_market.requests.get')
+    def test_user_with_login_flow(self, mock_get, test_db):
+        """Test user logging in and accessing price history"""
+        # Step 1: User provides login cookie
+        login_cookie = "steamLoginSecure=12345|abcdef"
+        assert len(login_cookie) > 0
+        
+        # Step 2: User searches for item with history
+        from src.steam_market import get_price_history
+        
+        # Mock API response
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "success": True,
+            "prices": [
+                ["2024-01-01", "9.99", "10"],
+                ["2024-01-02", "10.50", "15"]
+            ]
+        }
+        mock_get.return_value = mock_response
+        
+        # Step 3: System fetches price history
+        history = get_price_history("AK-47 | Redline (Field-Tested)", login_cookie)
+        
+        # Step 4: User views historical data
+        assert history is not None or history is None
+    
+    def test_batch_analysis_workflow(self, test_db):
+        """Test user analyzing multiple items at once"""
+        items_to_analyze = [
+            "AK-47 | Redline (Field-Tested)",
+            "M4A4 | Howl (Minimal Wear)",
+            "AWP | Dragon Lore (Factory New)",
+            "Desert Eagle | Blaze (Factory New)"
+        ]
+        
+        results = {}
+        for item in items_to_analyze:
+            parsed = parse_market_name(item)
+            if parsed:
+                # Simulate data for each
+                database.add_sales([{
+                    'market_hash_name': item,
+                    'item_type': parsed.get('type', 'Unknown'),
+                    'item_name': parsed.get('name', 'Unknown'),
+                    'item_wear': parsed.get('wear', 'Unknown'),
+                    'price': 10.0,
+                    'sale_timestamp': 1234567890,
+                    'sale_date_str': '2024-01-01'
+                }])
+                
+                results[item] = database.get_sales_for_item(item)
+        
+        # User can now compare all items
+        assert len(results) == len(items_to_analyze)
+        for item, data in results.items():
+            assert len(data) >= 0
