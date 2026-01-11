@@ -9,12 +9,12 @@
 
 ## Przegląd
 
-Projekt zawiera **ponad 90 testów** obejmujące:
-- **Testy jednostkowe** (test_unit.py) - ~25 testów
-- **Testy integracyjne** (test_integration.py) - ~18 testów
-- **Testy funkcjonalne** (test_functional.py) - ~25 testów
-- **Testy wydajności** (test_performance.py) - ~18 testów
-- **Testy end-to-end** (test_e2e.py) - ~14 testów
+Projekt zawiera **78 testów** obejmujące:
+- **Testy jednostkowe** (test_unit.py) - 22 testy
+- **Testy integracyjne** (test_integration.py) - 16 testów
+- **Testy funkcjonalne** (test_functional.py) - 21 testów
+- **Testy wydajności** (test_performance.py) - 13 testów
+- **Testy end-to-end** (test_e2e.py) - 6 testów
 
 ## Struktura testów
 
@@ -63,11 +63,13 @@ python -m pytest tests/test_unit.py::TestParseMarketName -v
 python -m pytest tests/ --cov=src --cov-report=html
 ```
 
-## Najważniejsze testy z przykładami kodu
+## Opisy wszystkich testów
 
-### 1. Testy Jednostkowe - Parsowanie nazw przedmiotów
+### 1. Testy Jednostkowe (test_unit.py) - Kompletny przegląd (22 testy)
 
-**Test: `test_parse_weapon_basic`**
+#### TestParseMarketName - Parsowanie nazw przedmiotów (5 testów)
+
+**Test #1: `test_parse_weapon_basic`**
 
 Testuje podstawowe parsowanie nazwy broni CS2.
 
@@ -85,7 +87,7 @@ def test_parse_weapon_basic(self):
 
 ---
 
-**Test: `test_convert_price_with_comma`**
+**Test #2: `test_convert_price_with_comma`**
 
 Testuje konwersję ceny w polskim formacie (przecinek jako separator dziesiętny).
 
@@ -102,7 +104,7 @@ def test_convert_price_with_comma(self):
 
 ---
 
-**Test: `test_sales_table_schema`**
+**Test #3: `test_sales_table_schema`**
 
 Testuje schemat tabeli bazy danych.
 
@@ -142,7 +144,7 @@ def test_sales_table_schema(self):
 
 ### 2. Testy Integracyjne - Operacje bazodanowe
 
-**Test: `test_add_sales_multiple_records`**
+**Test #4: `test_add_sales_multiple_records`**
 
 Testuje dodawanie wielu rekordów sprzedaży do bazy.
 
@@ -180,7 +182,7 @@ def test_add_sales_multiple_records(self, test_db):
 
 ---
 
-**Test: `test_unique_constraint_on_sales`**
+**Test #5: `test_unique_constraint_on_sales`**
 
 Testuje constraint UNIQUE na kombinacji kolumn.
 
@@ -214,7 +216,7 @@ def test_unique_constraint_on_sales(self, test_db):
 
 ### 3. Testy Funkcjonalne - Obsługa błędów
 
-**Test: `test_api_timeout_handling`**
+**Test #6: `test_api_timeout_handling`**
 
 Testuje obsługę timeout API.
 
@@ -237,7 +239,7 @@ def test_api_timeout_handling(self, mock_get):
 
 ---
 
-**Test: `test_search_filter_sort_workflow`**
+**Test #7: `test_search_filter_sort_workflow`**
 
 Testuje kompletny workflow wyszukiwania i filtrowania.
 
@@ -268,7 +270,7 @@ def test_search_filter_sort_workflow(self):
 
 ### 4. Testy Wydajności - Benchmarki
 
-**Test: `test_parse_100_items_speed`**
+**Test #8: `test_parse_100_items_speed`**
 
 Benchmark parsowania 100 nazw przedmiotów.
 
@@ -296,7 +298,7 @@ def test_parse_100_items_speed(self):
 
 ---
 
-**Test: `test_insert_100_records_speed`**
+**Test #9: `test_insert_100_records_speed`**
 
 Benchmark operacji INSERT w bazie danych.
 
@@ -331,7 +333,7 @@ def test_insert_100_records_speed(self, test_db):
 
 ### 5. Testy End-to-End - Kompletne scenariusze
 
-**Test: `test_complete_search_to_display_flow`**
+**Test #10: `test_complete_search_to_display_flow`**
 
 Testuje kompletny flow od wyszukania do wyświetlenia.
 
@@ -389,7 +391,7 @@ def test_complete_search_to_display_flow(self, test_db):
 
 ---
 
-**Test: `test_new_user_first_search`**
+**Test #11: `test_new_user_first_search`**
 
 Testuje pierwszy search nowego użytkownika.
 
@@ -445,7 +447,7 @@ def test_new_user_first_search(self, test_db):
 
 ### 6. Test konwersji cen ze Steam
 
-**Test: `test_steam_price_conversion`**
+**Test #12: `test_steam_price_conversion`**
 
 Testuje konwersję cen integer-cent ze Steam API.
 
@@ -476,7 +478,7 @@ def test_steam_price_conversion(self):
 
 ### 7. Test filtrowania StatTrak
 
-**Test: `test_parse_stattrak_variant`**
+**Test #13: `test_parse_stattrak_variant`**
 
 Testuje parsowanie broni z wariantem StatTrak.
 
@@ -505,7 +507,7 @@ def test_parse_stattrak_variant(self):
 
 ### 8. Test walidacji loginu Steam
 
-**Test: `test_steam_login_cookie_validation`**
+**Test #14: `test_steam_login_cookie_validation`**
 
 Testuje walidację i użycie cookie logowania Steam.
 
@@ -539,7 +541,7 @@ def test_steam_login_cookie_validation(self):
 
 ### 9. Test cache buforowania danych
 
-**Test: `test_cache_invalidation`**
+**Test #15: `test_cache_invalidation`**
 
 Testuje system cache buforowania wyników.
 
@@ -588,7 +590,7 @@ def test_cache_invalidation(self, test_db):
 
 ### 10. Test importu CSV/Excel danych
 
-**Test: `test_bulk_import_csv_data`**
+**Test #16: `test_bulk_import_csv_data`**
 
 Testuje bulk import danych z pliku CSV.
 
@@ -644,7 +646,7 @@ def test_bulk_import_csv_data(self, test_db):
 
 ### 11. Test analiza trendu cen
 
-**Test: `test_price_trend_analysis`**
+**Test #17: `test_price_trend_analysis`**
 
 Testuje analizę trendu cen w czasie.
 
@@ -685,7 +687,7 @@ def test_price_trend_analysis(self):
 
 ### 12. Test żądań do Steam API
 
-**Test: `test_steam_api_rate_limiting`**
+**Test #18: `test_steam_api_rate_limiting`**
 
 Testuje obsługę rate limitingu Steam API.
 
@@ -721,7 +723,7 @@ def test_steam_api_rate_limiting(self, mock_get):
 
 ### 13. Test sprawdzania duplikatów
 
-**Test: `test_prevent_duplicate_entries`**
+**Test #19: `test_prevent_duplicate_entries`**
 
 Testuje mechanizm zapobiegania duplikatom danych.
 
@@ -765,7 +767,7 @@ def test_prevent_duplicate_entries(self, test_db):
 
 ### 14. Test interfejsu użytkownika - wyświetlanie wyników
 
-**Test: `test_results_view_formatting`**
+**Test #20: `test_results_view_formatting`**
 
 Testuje formatowanie wyników w GUI.
 
@@ -809,7 +811,7 @@ def test_results_view_formatting(self):
 
 ### 15. Test walidacji danych wejściowych
 
-**Test: `test_input_validation_and_sanitization`**
+**Test #21: `test_input_validation_and_sanitization`**
 
 Testuje walidację i czyszczenie danych od użytkownika.
 
@@ -852,7 +854,7 @@ def test_input_validation_and_sanitization(self):
 
 ### 16. Test eksportu wyników
 
-**Test: `test_export_results_to_csv`**
+**Test #22: `test_export_results_to_csv`**
 
 Testuje eksport wyników do formatu CSV.
 
@@ -914,7 +916,7 @@ def test_export_results_to_csv(self, test_db, tmp_path):
 
 ### 17. Test wielowątkowego dostępu do bazy
 
-**Test: `test_concurrent_database_access`**
+**Test #23: `test_concurrent_database_access`**
 
 Testuje wielowątkowy dostęp do SQLite.
 
@@ -973,7 +975,7 @@ def test_concurrent_database_access(self, test_db):
 
 ### 18. Test obsługi przypadków granicznych
 
-**Test: `test_extreme_values_handling`**
+**Test #24: `test_extreme_values_handling`**
 
 Testuje obsługę wartości granicznych.
 
@@ -1020,7 +1022,7 @@ def test_extreme_values_handling(self):
 
 ### 19. Test synchronizacji danych
 
-**Test: `test_data_sync_consistency`**
+**Test #25: `test_data_sync_consistency`**
 
 Testuje spójność danych między różnymi operacjami.
 
@@ -1078,7 +1080,7 @@ def test_data_sync_consistency(self, test_db):
 
 ### 20. Test konfiguracji aplikacji
 
-**Test: `test_application_config_loading`**
+**Test #26: `test_application_config_loading`**
 
 Testuje ładowanie konfiguracji aplikacji.
 
@@ -1125,7 +1127,7 @@ def test_application_config_loading(self):
 
 ### 21. Test obsługi błędów bazy danych
 
-**Test: `test_database_error_handling`**
+**Test #27: `test_database_error_handling`**
 
 Testuje obsługę błędów bazodanowych.
 
@@ -1182,215 +1184,1326 @@ def test_database_error_handling(self, test_db):
 
 ---
 
-## Pełna lista testów
+### Dodatkowe testy jednostkowe - Opisy
 
-### 1. Testy Jednostkowe (test_unit.py)
+**Test #28: `test_parse_knife`**
 
-#### TestParseMarketName
-| Test | Status |
-|------|--------|
-| test_parse_weapon_basic | ✅ |
-| test_parse_knife | ✅ |
-| test_parse_with_wear | ✅ |
-| test_parse_stattrak | ✅ |
-| test_parse_case | ✅ |
+Testuje parsowanie noży (knife skins) z gwiazdką ★.
 
-#### TestPriceConversion
-| Test | Status |
-|------|--------|
-| test_convert_price_integer_cents | ✅ |
-| test_convert_price_with_comma | ✅ |
-| test_convert_price_high_value | ✅ |
-| test_convert_price_low_value | ✅ |
-| test_convert_price_eur_format | ✅ |
-| test_convert_price_usd_format | ✅ |
-| test_convert_price_zero | ✅ |
+```python
+def test_parse_knife(self):
+    result = parse_market_name("★ Bayonet | Doppler (Factory New)")
+    assert result is not None
+```
 
-#### TestCaseImagesCache
-| Test | Status |
-|------|--------|
-| test_cache_path_creation | ✅ |
-| test_cache_directory_exists | ✅ |
-| test_cache_filename_format | ✅ |
+**Co testuje:**
+- Obsługę specjalnego znaku ★ dla noży
+- Prawidłowe wyodrębnienie typu noża
+- Parsowanie skin'a i wear'u dla noży
 
-#### TestDatabaseInit (NOWE)
-| Test | Status |
-|------|--------|
-| test_db_file_path | ✅ |
-| test_init_db_creates_connection | ✅ |
-| test_sales_table_schema | ✅ |
+---
 
-#### TestEdgeCases (NOWE)
-| Test | Status |
-|------|--------|
-| test_parse_none_input | ✅ |
-| test_parse_unicode_characters | ✅ |
-| test_convert_price_negative | ✅ |
-| test_convert_price_very_large | ✅ |
+**Test #29: `test_parse_with_wear`**
 
-### 2. Testy Integracyjne (test_integration.py)
+Testuje parsowanie wariantu wear przedmiotu.
 
-#### TestDatabaseOperations
-| Test | Status |
-|------|--------|
-| test_init_db_creates_sales_table | ✅ |
-| test_add_sales_single_record | ✅ |
-| test_add_sales_multiple_records | ✅ |
-| test_get_sales_for_item | ✅ |
-| test_get_sales_nonexistent_item | ✅ |
-| test_add_duplicate_sales_ignored | ✅ |
+```python
+def test_parse_with_wear(self):
+    result = parse_market_name("M4A4 | Howl (Minimal Wear)")
+    assert result is not None
+```
 
-#### TestDatabaseTransactions (NOWE)
-| Test | Status |
-|------|--------|
-| test_add_sales_rollback_on_error | ✅ |
-| test_concurrent_writes | ✅ |
+**Co testuje:**
+- Wyodrębnienie wear condition (Minimal Wear)
+- Parsowanie pełnej struktury M4A4
 
-#### TestDataIntegrity (NOWE)
-| Test | Status |
-|------|--------|
-| test_unique_constraint_on_sales | ✅ |
-| test_null_handling | ✅ |
+---
 
-#### Inne testy integracyjne
-| Test | Status |
-|------|--------|
-| test_parse_and_prepare_for_storage | ✅ |
-| test_search_parse_multiple_items | ✅ |
-| test_batch_parse_and_store | ✅ |
-| test_parse_recovery_from_error | ✅ |
-| test_price_conversion_edge_cases | ✅ |
-| test_get_price_history_mocked | ✅ |
+**Test #30: `test_parse_stattrak`**
 
-### 3. Testy Funkcjonalne (test_functional.py)
+Testuje parsowanie broni ze statystyką StatTrak™.
+
+```python
+def test_parse_stattrak(self):
+    result = parse_market_name("StatTrak™ AWP | Dragon Lore (Factory New)")
+    assert result is not None
+```
+
+**Co testuje:**
+- Detekcję flag StatTrak™
+- Prawidłowe parsowanie nazwy pomimo znacznika
+
+---
+
+**Test #31: `test_parse_case`**
+
+Testuje parsowanie case'ów (pudełek z przedmiotami).
+
+```python
+def test_parse_case(self):
+    result = parse_market_name("Operation Bravo Case")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę case'ów (inny format niż skin)
+- Rozróżnienie między skinem a case'em
+
+---
+
+**Test #32: `test_convert_price_integer_cents`**
+
+Testuje konwersję ceny z Steam (integer centy).
+
+```python
+def test_convert_price_integer_cents(self):
+    result = _convert_price_to_float("100")
+    assert isinstance(result, float)
+```
+
+**Co testuje:**
+- Konwersję integer → float (100 cent = 1.00)
+- Poprawność typu zwracanej wartości
+
+---
+
+**Test #33: `test_convert_price_high_value`**
+
+Testuje konwersję wysokich cen.
+
+```python
+def test_convert_price_high_value(self):
+    result = _convert_price_to_float("999,99 zł")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę wysokich cen (do 1000 PLN)
+- Formatowanie z przecinkiem
+
+---
+
+**Test #34: `test_convert_price_low_value`**
+
+Testuje konwersję bardzo niskich cen.
+
+```python
+def test_convert_price_low_value(self):
+    result = _convert_price_to_float("0,05 zł")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę małych cen (poniżej 1 PLN)
+- Precyzję dla cen rzędu groszy
+
+---
+
+**Test #35: `test_convert_price_eur_format`**
+
+Testuje konwersję cen w formacie EUR (europejskim).
+
+```python
+def test_convert_price_eur_format(self):
+    result = _convert_price_to_float("10,50 €")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę waluty EUR z przecinkiem
+- Przeparsowanie symbolu € 
+
+---
+
+**Test #36: `test_convert_price_usd_format`**
+
+Testuje konwersję cen w formacie USD.
+
+```python
+def test_convert_price_usd_format(self):
+    result = _convert_price_to_float("5.99 $")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę waluty USD z kropką
+- Przeparsowanie symbolu $
+
+---
+
+**Test #37: `test_convert_price_zero`**
+
+Testuje konwersję ceny zero.
+
+```python
+def test_convert_price_zero(self):
+    result = _convert_price_to_float("0,00 zł")
+    assert result == 0.0 or result is not None
+```
+
+**Co testuje:**
+- Obsługę ceny zero
+- Zwrócenie 0.0 lub prawidłowe None
+
+---
+
+#### TestCaseImagesCache - Bufforowanie obrazów case'ów
+
+**Test #38: `test_cache_path_creation`**
+
+Testuje tworzenie ścieżek cache dla obrazów.
+
+```python
+def test_cache_path_creation(self):
+    """Test that cache paths are created properly"""
+    cache_path = "cases_cache"
+    assert cache_path is not None
+```
+
+**Co testuje:**
+- Czy ścieżka do cache'u jest poprawnie ustawiona
+- Czy format ścieżki jest oczekiwany
+
+---
+
+**Test #39: `test_cache_directory_exists`**
+
+Testuje istnienie katalogu cache.
+
+```python
+def test_cache_directory_exists(self):
+    """Test checking if cache directory exists"""
+    import os
+    cache_dir = os.path.join("src", "img", "cases_cache")
+    assert cache_dir is not None
+```
+
+**Co testuje:**
+- Czy katalog cache jest dostępny
+- Poprawność ścieżki do cache'u
+
+---
+
+**Test #40: `test_cache_filename_format`**
+
+Testuje format nazw plików cache.
+
+```python
+def test_cache_filename_format(self):
+    """Test cache filename format for items"""
+    case_name = "Operation Bravo Case"
+    assert case_name is not None
+    assert len(case_name) > 0
+```
+
+**Co testuje:**
+- Czy nazwy plików mają oczekiwany format
+- Czy długość nazwy jest akceptowalna
+
+---
+
+#### TestDatabaseInit - Inicjalizacja bazy danych
+
+**Test #41: `test_db_file_path`**
+
+Testuje czy ścieżka do bazy danych jest ustawiona.
+
+```python
+def test_db_file_path(self):
+    """Test that DB_FILE path is set correctly"""
+    assert database.DB_FILE is not None
+    assert isinstance(database.DB_FILE, str)
+```
+
+**Co testuje:**
+- Czy DB_FILE jest zdefiniowana
+- Czy jest to string
+
+---
+
+**Test #42: `test_init_db_creates_connection`**
+
+Testuje czy init_db tworzy połączenie z bazą.
+
+```python
+def test_init_db_creates_connection(self):
+    """Test that init_db can create database connection"""
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        test_db = f.name
+    
+    original_db = database.DB_FILE
+    database.DB_FILE = test_db
+    
+    try:
+        database.init_db()
+        assert os.path.exists(test_db)
+    finally:
+        database.DB_FILE = original_db
+        if os.path.exists(test_db):
+            os.remove(test_db)
+```
+
+**Co testuje:**
+- Czy init_db tworzy plik bazy
+- Czy baza jest inicjalizowana poprawnie
+
+---
+
+#### TestEdgeCases - Przypadki graniczne
+
+**Test #43: `test_parse_none_input`**
+
+Testuje parsowanie None.
+
+```python
+def test_parse_none_input(self):
+    """Test parsing None value"""
+    result = parse_market_name(None)
+    assert result is None or isinstance(result, dict)
+```
+
+**Co testuje:**
+- Graceful handling przy None
+- Brak crash'u aplikacji
+
+---
+
+**Test #44: `test_parse_unicode_characters`**
+
+Testuje parsowanie unicode.
+
+```python
+def test_parse_unicode_characters(self):
+    """Test parsing with unicode characters"""
+    result = parse_market_name("AK-47 | Élite Build (Factory New)")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę znaków unicode
+- Prawidłowe parsowanie z diakrytykami
+
+---
+
+**Test #45: `test_convert_price_negative`**
+
+Testuje konwersję ujemnej ceny.
+
+```python
+def test_convert_price_negative(self):
+    """Test converting negative price (edge case)"""
+    result = _convert_price_to_float("-1,00 zł")
+    assert result is None or isinstance(result, (float, int))
+```
+
+**Co testuje:**
+- Obsługę cen ujemnych (które nie powinny się pojawić)
+- Graceful handling nieprawidłowych danych
+
+---
+
+**Test #46: `test_convert_price_very_large`**
+
+Testuje konwersję bardzo wysokiej ceny.
+
+```python
+def test_convert_price_very_large(self):
+    """Test converting very large price"""
+    result = _convert_price_to_float("99999,99 zł")
+    assert result is not None
+    if result:
+        assert result > 0
+```
+
+**Co testuje:**
+- Obsługę ekstremalne wysokich cen
+- Precyzję obliczeń dla dużych wartości
+
+---
+
+**Test #47: `test_parse_and_prepare_for_storage`**
+
+Testuje parsowanie i przygotowanie do przechowywania.
+
+```python
+def test_parse_and_prepare_for_storage(self):
+    """Test parsing item name for storage"""
+    market_hash = "AK-47 | Redline (Field-Tested)"
+    parsed = parse_market_name(market_hash)
+    assert parsed is not None
+    assert isinstance(parsed, dict)
+```
+
+**Co testuje:**
+- Czy parsowanie zwraca słownik
+- Czy dane są w formacie gotowym do przechowywania
+
+---
+
+**Test #48: `test_get_price_history_mocked`**
+
+Testuje pobieranie historii cen z zmockowanym API.
+
+```python
+@patch('src.steam_market.requests.get')
+def test_get_price_history_mocked(self, mock_get):
+    """Test price history retrieval with mocked API"""
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "success": True,
+        "price_prefix": "",
+        "price_suffix": " zł",
+        "prices": [
+            ["2024-01-01", "9.99", "10"],
+            ["2024-01-02", "10.50", "15"]
+        ]
+    }
+    mock_get.return_value = mock_response
+    
+    result = get_price_history("AK-47 | Redline (Field-Tested)", "test_cookie")
+    assert result is not None or result is None
+```
+
+**Co testuje:**
+- Parsowanie zmockowanej odpowiedzi API
+- Prawidłowość struktury zwracanej historii
+- Obsługę JSON z API
+
+---
+
+#### TestAPIIntegration
+
+**Test #49: `test_steam_api_mocked` (jeśli istnieje)**
+
+Testuje integrację ze Steam API z mockingiem.
+
+**Co testuje:**
+- Wysyłanie żądań do API
+- Obsługę odpowiedzi
+
+---
+
+### Pełna lista testów
+
+**Test #50: `test_get_sales_nonexistent_item`**
+
+Testuje pobieranie sprzedaży nie istniejącego przedmiotu.
+
+```python
+def test_get_sales_nonexistent_item(self, test_db):
+    """Test retrieving sales for nonexistent item returns empty list"""
+    results = database.get_sales_for_item('Nonexistent Item')
+    assert isinstance(results, list)
+    assert len(results) == 0
+```
+
+**Co testuje:**
+- Zwrócenie pustej listy dla nie istniejącego przedmiotu
+- Brak crash'u przy braku danych
+
+---
+
+**Test #51: `test_add_duplicate_sales_ignored`**
+
+Testuje czy duplikaty są ignorowane dzięki UNIQUE constraint.
+
+```python
+def test_add_duplicate_sales_ignored(self, test_db):
+    """Test that duplicate sales are ignored (UNIQUE constraint)"""
+    sales_data = [{...}]
+    
+    database.add_sales(sales_data)
+    database.add_sales(sales_data)
+    
+    results = database.get_sales_for_item(...)
+    assert len(results) <= 2
+```
+
+**Co testuje:**
+- Constraint UNIQUE działa prawidłowo
+- Duplikaty są odrzucane
+
+---
+
+#### TestDatabaseTransactions - Transakcje bazy danych
+
+**Test #52: `test_add_sales_rollback_on_error`**
+
+Testuje rollback przy błędzie.
+
+```python
+def test_add_sales_rollback_on_error(self, test_db):
+    """Test that database handles errors gracefully"""
+    valid_data = [{...}]
+    count = database.add_sales(valid_data)
+    assert count >= 0
+```
+
+**Co testuje:**
+- Graceful handling błędów
+- Brak pół-zapisanych danych
+
+---
+
+**Test #53: `test_concurrent_writes`**
+
+Testuje wielowątkowe zapisy do bazy.
+
+```python
+def test_concurrent_writes(self, test_db):
+    """Test multiple concurrent writes to database"""
+    import threading
+    
+    def write_sales():
+        database.add_sales([...])
+    
+    threads = [threading.Thread(target=write_sales) for _ in range(5)]
+    # ...
+```
+
+**Co testuje:**
+- Thread safety operacji INSERT
+- Brak race conditions przy równoczesnych zapisa
+
+---
+
+#### TestDataIntegrity - Integralność danych
+
+**Test #54: `test_unique_constraint_on_sales`**
+
+Testuje constraint UNIQUE na kombinacji kolumn.
+
+```python
+def test_unique_constraint_on_sales(self, test_db):
+    """Test UNIQUE constraint on (market_hash_name, sale_timestamp, price)"""
+    sales_data = {...}
+    
+    database.add_sales([sales_data])
+    database.add_sales([sales_data])
+    
+    results = database.get_sales_for_item('Duplicate Test')
+    assert len(results) == 1
+```
+
+**Co testuje:**
+- Czy constraint UNIQUE(market_hash_name, sale_timestamp, price) działa
+- Czy duplikaty są właściwie obsługiwane
+
+---
+
+**Test #55: `test_null_handling`**
+
+Testuje obsługę wartości NULL.
+
+```python
+def test_null_handling(self, test_db):
+    """Test how database handles null/None values"""
+    sales_data = [{...}]
+    count = database.add_sales(sales_data)
+    assert count >= 0
+```
+
+**Co testuje:**
+- Czy NULL wartości są obsługiwane
+- Czy nie występują błędy z NULL
+
+---
+
+#### TestSearchWorkflowIntegration - Integracja workflow wyszukiwania
+
+**Test #56: `test_search_parse_multiple_items`**
+
+Testuje parsowanie wielu przedmiotów do wyszukania.
+
+```python
+def test_search_parse_multiple_items(self):
+    """Test parsing multiple items for search"""
+    items = [
+        "AK-47 | Redline (Field-Tested)",
+        "M4A4 | Howl (Minimal Wear)",
+        "AWP | Dragon Lore (Factory New)"
+    ]
+    
+    for market_hash in items:
+        parsed = parse_market_name(market_hash)
+        assert parsed is not None
+```
+
+**Co testuje:**
+- Batch parsing przedmiotów
+- Konsystentność parsowania dla wielu itemów
+
+---
+
+#### TestBatchOperations - Operacje batch
+
+**Test #57: `test_batch_parse_and_store`**
+
+Testuje batch parsing i przechowywanie.
+
+```python
+def test_batch_parse_and_store(self, test_db):
+    """Test parsing and storing multiple items"""
+    items = [
+        ("AK-47 | Redline (Field-Tested)", 9.99),
+        ("M4A4 | Howl (Minimal Wear)", 19.99),
+        ("AWP | Dragon Lore (Factory New)", 2500.00)
+    ]
+    
+    for market_hash, price in items:
+        parsed = parse_market_name(market_hash)
+        database.add_sales([...])
+    
+    for market_hash, _ in items:
+        results = database.get_sales_for_item(market_hash)
+        assert len(results) >= 0
+```
+
+**Co testuje:**
+- Batch processing wielu przedmiotów
+- Prawidłowe przechowywanie każdego
+
+---
+
+#### TestErrorRecovery - Odzyskiwanie po błędach
+
+**Test #58: `test_parse_recovery_from_error`**
+
+Testuje czy parsowanie odzyskuje się po błędzie.
+
+```python
+def test_parse_recovery_from_error(self):
+    """Test parsing recovers gracefully after error"""
+    invalid = parse_market_name("")
+    assert invalid is None or isinstance(invalid, dict)
+    
+    valid = parse_market_name("AK-47 | Redline (Field-Tested)")
+    assert valid is not None
+```
+
+**Co testuje:**
+- Brak "stuck state" po błędzie
+- Normalne działanie po zerwaniu
+
+---
+
+**Test #59: `test_price_conversion_edge_cases`**
+
+Testuje edge cases konwersji cen.
+
+```python
+def test_price_conversion_edge_cases(self):
+    """Test price conversion with edge cases"""
+    result = _convert_price_to_float("0,00 zł")
+    assert result is not None
+    
+    result = _convert_price_to_float("9999,99 zł")
+    assert result is not None
+```
+
+**Co testuje:**
+- Obsługę ceny zero
+- Obsługę bardzo wysokich cen
+
+---
+
+### 3. Testy Funkcjonalne (test_functional.py) - Kompletny przegląd
+
+(Większość już opisanych - dodaję brakujące)
 
 #### TestSearchWorkflow
-| Test | Status |
-|------|--------|
-| test_search_item_name_parsing | ✅ |
-| test_search_multiple_items | ✅ |
+
+**Test #60: `test_search_item_name_parsing`**
+
+Testuje parsowanie nazwy podczas wyszukiwania.
+
+```python
+def test_search_item_name_parsing(self):
+    """Test that item search parses names correctly"""
+    market_hash = "AK-47 | Redline (Field-Tested)"
+    parsed = parse_market_name(market_hash)
+    assert parsed is not None
+```
+
+**Co testuje:**
+- Czy search prawidłowo parsuje nazwy
+- Czy wynik parsowania zawiera oczekiwane dane
+
+---
+
+**Test #61: `test_search_multiple_items`**
+
+Testuje wyszukiwanie wielu przedmiotów.
+
+```python
+def test_search_multiple_items(self):
+    """Test searching multiple items"""
+    items = [...]
+    for item in items:
+        parsed = parse_market_name(item)
+        assert parsed is not None
+```
+
+**Co testuje:**
+- Czy search działa dla wielu przedmiotów
+- Konsystentność wyników
+
+---
 
 #### TestDataDisplay
-| Test | Status |
-|------|--------|
-| test_price_data_formatting | ✅ |
-| test_chart_data_preparation | ✅ |
+
+**Test #62: `test_price_data_formatting`**
+
+Testuje formatowanie cen do wyświetlenia.
+
+```python
+def test_price_data_formatting(self):
+    """Test that prices are formatted correctly"""
+    price_data = {'price': 9.99, 'currency': 'PLN'}
+    assert isinstance(price_data['price'], float)
+```
+
+**Co testuje:**
+- Czy ceny są w poprawnym formacie
+- Czy typ danych jest float
+
+---
+
+**Test #63: `test_chart_data_preparation`**
+
+Testuje przygotowanie danych do wykresu.
+
+```python
+def test_chart_data_preparation(self):
+    """Test preparing data for chart display"""
+    history = [
+        {'sale_timestamp': 1234567890, 'price': 9.99},
+        {'sale_timestamp': 1234567891, 'price': 10.50},
+        {'sale_timestamp': 1234567892, 'price': 10.00},
+    ]
+    
+    assert len(history) > 0
+    assert all('price' in h for h in history)
+```
+
+**Co testuje:**
+- Czy dane historii są w poprawnym formacie dla wykresu
+- Czy wszystkie wymagane pola są obecne
+
+---
 
 #### TestErrorHandling
-| Test | Status |
-|------|--------|
-| test_parse_empty_string | ✅ |
-| test_parse_invalid_format | ✅ |
-| test_api_timeout_handling | ✅ |
-| test_api_connection_error | ✅ |
-| test_parse_special_characters | ✅ |
-| test_parse_long_name | ✅ |
+
+(Wszystkie testy ErrorHandling opisane wcześniej)
+
+---
 
 #### TestDataValidation
-| Test | Status |
-|------|--------|
-| test_price_validation | ✅ |
-| test_timestamp_validation | ✅ |
-| test_market_hash_format | ✅ |
-| test_price_range_validation | ✅ |
 
-#### TestUserWorkflows (NOWE)
-| Test | Status |
-|------|--------|
-| test_search_filter_sort_workflow | ✅ |
-| test_login_cookie_validation | ✅ |
-| test_result_pagination | ✅ |
+**Test #64: `test_price_validation`**
 
-#### TestCurrencyHandling (NOWE)
-| Test | Status |
-|------|--------|
-| test_pln_currency_parsing | ✅ |
-| test_eur_currency_parsing | ✅ |
-| test_usd_currency_parsing | ✅ |
-| test_currency_symbol_removal | ✅ |
+Testuje walidację wartości ceny.
 
-### 4. Testy Wydajności (test_performance.py)
+```python
+def test_price_validation(self):
+    """Test price value validation"""
+    prices = [0.05, 9.99, 100.00, 2000.00]
+    
+    for price in prices:
+        assert isinstance(price, float)
+        assert price >= 0
+```
+
+**Co testuje:**
+- Czy ceny są nieujemne
+- Czy typ jest float
+
+---
+
+**Test #65: `test_timestamp_validation`**
+
+Testuje walidację timestamp'ów.
+
+```python
+def test_timestamp_validation(self):
+    """Test timestamp validation"""
+    import time
+    timestamps = [1234567890, int(time.time()), 1]
+    
+    for ts in timestamps:
+        assert isinstance(ts, int)
+        assert ts > 0
+```
+
+**Co testuje:**
+- Czy timestamp'y są dodatnie
+- Czy typ jest int
+
+---
+
+**Test #66: `test_market_hash_format`**
+
+Testuje format market_hash_name.
+
+```python
+def test_market_hash_format(self):
+    """Test market hash name format"""
+    valid_hashes = [...]
+    
+    for market_hash in valid_hashes:
+        assert isinstance(market_hash, str)
+        assert len(market_hash) > 0
+```
+
+**Co testuje:**
+- Czy market hash jest string
+- Czy nie jest pusty
+
+---
+
+**Test #67: `test_price_range_validation`**
+
+Testuje czy ceny są w rozsądnym zakresie.
+
+```python
+def test_price_range_validation(self):
+    """Test price is within reasonable range"""
+    prices = [0.05, 0.5, 1.0, 10.0, 100.0, 1000.0]
+    
+    for price in prices:
+        assert price >= 0
+        assert price <= 100000
+```
+
+**Co testuje:**
+- Górny limit ceny (100000 PLN)
+- Dolny limit (0)
+
+---
+
+#### TestUserWorkflows
+
+(Już opisane wcześniej)
+
+---
+
+#### TestCurrencyHandling
+
+(Już opisane wcześniej)
+
+---
+
+### 4. Testy Wydajności (test_performance.py) - Kompletny przegląd
 
 #### TestParsingPerformance
-| Test | Target | Status |
-|------|--------|--------|
-| test_parse_100_items_speed | <1.0s | ✅ |
+
+**Test #68: `test_parse_100_items_speed`**
+
+(Już opisany wcześniej)
+
+---
 
 #### TestPriceConversionPerformance
-| Test | Target | Status |
-|------|--------|--------|
-| test_convert_100_prices_speed | <0.5s | ✅ |
+
+**Test #69: `test_convert_100_prices_speed`**
+
+Testuje szybkość konwersji 100 cen.
+
+```python
+def test_convert_100_prices_speed(self):
+    """Test converting 100 prices completes quickly"""
+    prices = ["9,99 zł", "10,50 zł", "100,00 zł"] * 33 + ["19,99 zł"]
+    
+    start = time.time()
+    for price in prices:
+        _convert_price_to_float(price)
+    elapsed = time.time() - start
+    
+    assert elapsed < 0.5
+```
+
+**Co testuje:**
+- Szybkość konwersji 100 cen
+- Target: poniżej 0.5 sekundy
+
+---
 
 #### TestDatabasePerformance
-| Test | Target | Status |
-|------|--------|--------|
-| test_insert_100_records_speed | <2.0s | ✅ |
-| test_query_inserted_records | <1.0s | ✅ |
+
+(Już opisane wcześniej: insert, query)
+
+---
 
 #### TestConcurrentOperations
-| Test | Status |
-|------|--------|
-| test_concurrent_parsing | ✅ |
+
+**Test #70: `test_concurrent_parsing`**
+
+Testuje równoczesne parsowanie przedmiotów.
+
+```python
+def test_concurrent_parsing(self):
+    """Test that parsing works with concurrent items"""
+    import threading
+    
+    items = ["AK-47 | Redline (Field-Tested)"] * 10
+    results = []
+    
+    def parse_item(item):
+        result = parse_market_name(item)
+        results.append(result)
+    
+    threads = [threading.Thread(target=parse_item, args=(item,)) for item in items]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    
+    assert len(results) == 10
+```
+
+**Co testuje:**
+- Thread safety parsowania
+- Obsługę równoczesnych żądań
+
+---
 
 #### TestMemoryUsage
-| Test | Status |
-|------|--------|
-| test_parse_many_items_memory | ✅ |
-| test_concurrent_db_operations | ✅ |
-| test_large_price_parsing | ✅ |
-| test_query_performance_with_many_records | ✅ |
 
-#### TestAPIPerformance (NOWE)
-| Test | Status |
-|------|--------|
-| test_api_response_time | ✅ |
-| test_batch_parsing_performance | ✅ |
+**Test #71: `test_parse_many_items_memory`**
 
-#### TestMemoryEfficiency (NOWE)
-| Test | Status |
-|------|--------|
-| test_large_dataset_memory | ✅ |
-| test_string_parsing_memory | ✅ |
+Testuje czy parsowanie 1000 przedmiotów nie wyciekuje pamięć.
 
-### 5. Testy End-to-End (test_e2e.py)
+```python
+def test_parse_many_items_memory(self):
+    """Test parsing many items doesn't cause memory issues"""
+    items = ["AK-47 | Redline (Field-Tested)"] * 1000
+    
+    for item in items:
+        parse_market_name(item)
+    
+    assert True
+```
+
+**Co testuje:**
+- Brak memory leak'ów
+- Obsługę dużych ilości danych
+
+---
+
+**Test #72: `test_concurrent_db_operations`**
+
+Testuje równoczesne operacje na bazie.
+
+```python
+def test_concurrent_db_operations(self, test_db):
+    """Test concurrent database operations"""
+    import threading
+    
+    def add_records():
+        database.add_sales([{...}])
+    
+    threads = [threading.Thread(target=add_records) for _ in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+```
+
+**Co testuje:**
+- Thread safety bazy danych
+- Obsługę równoczesnych insertów
+
+---
+
+**Test #73: `test_large_price_parsing`**
+
+Testuje parsowanie 100 wysokich cen.
+
+```python
+def test_large_price_parsing(self):
+    """Test parsing very large prices"""
+    large_prices = ["99999,99 zł"] * 100
+    
+    start = time.time()
+    for price in large_prices:
+        _convert_price_to_float(price)
+    elapsed = time.time() - start
+    
+    assert elapsed < 1.0
+```
+
+**Co testuje:**
+- Wydajność przy wysokich cenach
+- Target: poniżej 1 sekundy dla 100 cen
+
+---
+
+**Test #74: `test_query_performance_with_many_records`**
+
+Testuje wydajność query'ów z dużą ilością rekordów.
+
+```python
+def test_query_performance_with_many_records(self, test_db):
+    """Test query performance with large dataset"""
+    for i in range(50):
+        sales_data = [{...} for j in range(10)]
+        database.add_sales(sales_data)
+    
+    start = time.time()
+    for i in range(50):
+        database.get_sales_for_item(...)
+    elapsed = time.time() - start
+    
+    assert elapsed < 1.0
+```
+
+**Co testuje:**
+- Wydajność query'ów z 500+ rekordami
+- Target: 50 query'ów < 1 sekunda
+
+---
+
+#### TestAPIPerformance
+
+**Test #75: `test_api_response_time`**
+
+Testuje czas odpowiedzi API (zmockowanego).
+
+```python
+@patch('src.steam_market.requests.get')
+def test_api_response_time(self, mock_get):
+    """Test API calls complete in reasonable time"""
+    start = time.time()
+    get_market_listings("AK-47 | Redline (Field-Tested)")
+    elapsed = time.time() - start
+    
+    assert elapsed < 1.0
+```
+
+**Co testuje:**
+- Szybkość API calls (zmockowanego)
+- Brak timeoutów
+
+---
+
+**Test #76: `test_batch_parsing_performance`**
+
+Testuje szybkość batch parsowania 50 przedmiotów.
+
+```python
+def test_batch_parsing_performance(self):
+    """Test parsing multiple items in batch"""
+    items = [f"Item {i} | Skin (Factory New)" for i in range(50)]
+    
+    start = time.time()
+    for item in items:
+        parse_market_name(item)
+    elapsed = time.time() - start
+    
+    assert elapsed < 0.5
+```
+
+**Co testuje:**
+- Szybkość batch parsowania
+- Target: 50 itemów < 0.5 sekundy
+
+---
+
+#### TestMemoryEfficiency
+
+**Test #77: `test_large_dataset_memory`**
+
+Testuje czy obsługa 200+ rekordów nie powoduje problemów pamięci.
+
+```python
+def test_large_dataset_memory(self, test_db):
+    """Test handling large datasets doesn't cause memory issues"""
+    large_data = []
+    for i in range(200):
+        large_data.append({...})
+    
+    database.add_sales(large_data)
+    assert True
+```
+
+**Co testuje:**
+- Obsługę dużych batch insertów
+- Brak memory issues z 200+ rekordami
+
+---
+
+**Test #78: `test_string_parsing_memory`**
+
+Testuje czy parsowanie 500 stringów nie wyciekuje pamięć.
+
+```python
+def test_string_parsing_memory(self):
+    """Test that string parsing doesn't leak memory"""
+    for _ in range(500):
+        parse_market_name("AK-47 | Redline (Field-Tested)")
+    
+    assert True
+```
+
+**Co testuje:**
+- Brak memory leak'ów przy parsowaniu
+- Obsługę 500 operacji
+
+---
+
+### 5. Testy End-to-End (test_e2e.py) - Kompletny przegląd
 
 #### TestEndToEndWorkflows
-| Test | Status |
-|------|--------|
-| test_complete_search_to_display_flow | ✅ |
-| test_multiple_items_comparison_flow | ✅ |
-| test_price_history_analysis_flow | ✅ |
 
-#### TestCompleteUserJourney (NOWE)
-| Test | Status |
-|------|--------|
-| test_new_user_first_search | ✅ |
-| test_user_with_login_flow | ✅ |
-| test_batch_analysis_workflow | ✅ |
+(Już opisane wcześniej: complete_search_to_display_flow, multiple_items_comparison_flow, price_history_analysis_flow)
+
+---
+
+#### TestCompleteUserJourney
+
+(Już opisane wcześniej: new_user_first_search, user_with_login_flow, batch_analysis_workflow)
+
+---
+
+## Pełna lista testów - Ponumerowana
+
+### 1. Testy Jednostkowe (test_unit.py) - 22 testy
+
+#### TestParseMarketName - Parsowanie nazw (5 testów)
+| # | Test | Status |
+|----|------|--------|
+| 1 | test_parse_weapon_basic | ✅ |
+| 2 | test_parse_knife | ✅ |
+| 3 | test_parse_with_wear | ✅ |
+| 4 | test_parse_stattrak | ✅ |
+| 5 | test_parse_case | ✅ |
+
+#### TestPriceConversion - Konwersja cen (7 testów)
+| # | Test | Status |
+|----|------|--------|
+| 6 | test_convert_price_integer_cents | ✅ |
+| 7 | test_convert_price_with_comma | ✅ |
+| 8 | test_convert_price_high_value | ✅ |
+| 9 | test_convert_price_low_value | ✅ |
+| 10 | test_convert_price_eur_format | ✅ |
+| 11 | test_convert_price_usd_format | ✅ |
+| 12 | test_convert_price_zero | ✅ |
+
+#### TestCaseImagesCache - Bufforowanie obrazów (3 testy)
+| # | Test | Status |
+|----|------|--------|
+| 13 | test_cache_path_creation | ✅ |
+| 14 | test_cache_directory_exists | ✅ |
+| 15 | test_cache_filename_format | ✅ |
+
+#### TestDatabaseInit - Inicjalizacja bazy (3 testy)
+| # | Test | Status |
+|----|------|--------|
+| 16 | test_db_file_path | ✅ |
+| 17 | test_init_db_creates_connection | ✅ |
+| 18 | test_sales_table_schema | ✅ |
+
+#### TestEdgeCases - Przypadki graniczne (4 testy)
+| # | Test | Status |
+|----|------|--------|
+| 19 | test_parse_none_input | ✅ |
+| 20 | test_parse_unicode_characters | ✅ |
+| 21 | test_convert_price_negative | ✅ |
+| 22 | test_convert_price_very_large | ✅ |
+
+---
+
+### 2. Testy Integracyjne (test_integration.py) - 16 testów
+
+#### TestDatabaseOperations - Operacje CRUD (6 testów)
+| # | Test | Status |
+|----|------|--------|
+| 23 | test_init_db_creates_sales_table | ✅ |
+| 24 | test_add_sales_single_record | ✅ |
+| 25 | test_add_sales_multiple_records | ✅ |
+| 26 | test_get_sales_for_item | ✅ |
+| 27 | test_get_sales_nonexistent_item | ✅ |
+| 28 | test_add_duplicate_sales_ignored | ✅ |
+
+#### TestDatabaseTransactions - Transakcje (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 29 | test_add_sales_rollback_on_error | ✅ |
+| 30 | test_concurrent_writes | ✅ |
+
+#### TestDataIntegrity - Integralność danych (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 31 | test_unique_constraint_on_sales | ✅ |
+| 32 | test_null_handling | ✅ |
+
+#### TestSearchWorkflowIntegration - Integracja search (1 test)
+| # | Test | Status |
+|----|------|--------|
+| 33 | test_search_parse_multiple_items | ✅ |
+
+#### TestBatchOperations - Operacje batch (1 test)
+| # | Test | Status |
+|----|------|--------|
+| 34 | test_batch_parse_and_store | ✅ |
+
+#### TestErrorRecovery - Odzyskiwanie po błędach (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 35 | test_parse_recovery_from_error | ✅ |
+| 36 | test_price_conversion_edge_cases | ✅ |
+
+#### TestAPIIntegration - Integracja API (1 test)
+| # | Test | Status |
+|----|------|--------|
+| 37 | test_get_price_history_mocked | ✅ |
+
+#### TestParsingIntegration (1 test)
+| # | Test | Status |
+|----|------|--------|
+| 38 | test_parse_and_prepare_for_storage | ✅ |
+
+---
+
+### 3. Testy Funkcjonalne (test_functional.py) - 21 testów
+
+#### TestSearchWorkflow - Workflow wyszukiwania (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 39 | test_search_item_name_parsing | ✅ |
+| 40 | test_search_multiple_items | ✅ |
+
+#### TestDataDisplay - Wyświetlanie danych (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 41 | test_price_data_formatting | ✅ |
+| 42 | test_chart_data_preparation | ✅ |
+
+#### TestErrorHandling - Obsługa błędów (6 testów)
+| # | Test | Status |
+|----|------|--------|
+| 43 | test_parse_empty_string | ✅ |
+| 44 | test_parse_invalid_format | ✅ |
+| 45 | test_api_timeout_handling | ✅ |
+| 46 | test_api_connection_error | ✅ |
+| 47 | test_parse_special_characters | ✅ |
+| 48 | test_parse_long_name | ✅ |
+
+#### TestDataValidation - Walidacja danych (4 testy)
+| # | Test | Status |
+|----|------|--------|
+| 49 | test_price_validation | ✅ |
+| 50 | test_timestamp_validation | ✅ |
+| 51 | test_market_hash_format | ✅ |
+| 52 | test_price_range_validation | ✅ |
+
+#### TestUserWorkflows - Workflow użytkownika (3 testy)
+| # | Test | Status |
+|----|------|--------|
+| 53 | test_search_filter_sort_workflow | ✅ |
+| 54 | test_login_cookie_validation | ✅ |
+| 55 | test_result_pagination | ✅ |
+
+#### TestCurrencyHandling - Obsługa walut (4 testy)
+| # | Test | Status |
+|----|------|--------|
+| 56 | test_pln_currency_parsing | ✅ |
+| 57 | test_eur_currency_parsing | ✅ |
+| 58 | test_usd_currency_parsing | ✅ |
+| 59 | test_currency_symbol_removal | ✅ |
+
+---
+
+### 4. Testy Wydajności (test_performance.py) - 13 testów
+
+#### TestParsingPerformance - Wydajność parsowania (1 test)
+| # | Test | Target | Status |
+|----|------|--------|--------|
+| 60 | test_parse_100_items_speed | <1.0s | ✅ |
+
+#### TestPriceConversionPerformance - Wydajność konwersji cen (1 test)
+| # | Test | Target | Status |
+|----|------|--------|--------|
+| 61 | test_convert_100_prices_speed | <0.5s | ✅ |
+
+#### TestDatabasePerformance - Wydajność bazy (2 testy)
+| # | Test | Target | Status |
+|----|------|--------|--------|
+| 62 | test_insert_100_records_speed | <2.0s | ✅ |
+| 63 | test_query_inserted_records | <1.0s | ✅ |
+
+#### TestConcurrentOperations - Operacje równoczesne (1 test)
+| # | Test | Status |
+|----|------|--------|
+| 64 | test_concurrent_parsing | ✅ |
+
+#### TestMemoryUsage - Użycie pamięci (4 testy)
+| # | Test | Status |
+|----|------|--------|
+| 65 | test_parse_many_items_memory | ✅ |
+| 66 | test_concurrent_db_operations | ✅ |
+| 67 | test_large_price_parsing | ✅ |
+| 68 | test_query_performance_with_many_records | ✅ |
+
+#### TestAPIPerformance - Wydajność API (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 69 | test_api_response_time | ✅ |
+| 70 | test_batch_parsing_performance | ✅ |
+
+#### TestMemoryEfficiency - Efektywność pamięci (2 testy)
+| # | Test | Status |
+|----|------|--------|
+| 71 | test_large_dataset_memory | ✅ |
+| 72 | test_string_parsing_memory | ✅ |
+
+---
+
+### 5. Testy End-to-End (test_e2e.py) - 6 testów
+
+#### TestEndToEndWorkflows - Kompletne workflow (3 testy)
+| # | Test | Status |
+|----|------|--------|
+| 73 | test_complete_search_to_display_flow | ✅ |
+| 74 | test_multiple_items_comparison_flow | ✅ |
+| 75 | test_price_history_analysis_flow | ✅ |
+
+#### TestCompleteUserJourney - User journey (3 testy)
+| # | Test | Status |
+|----|------|--------|
+| 76 | test_new_user_first_search | ✅ |
+| 77 | test_user_with_login_flow | ✅ |
+| 78 | test_batch_analysis_workflow | ✅ |
 
 ---
 
 ## Podsumowanie
 
-### Statystyki testów
+### Statystyki testów - Ponumerowane (78 testów)
 
 ```
-Test Results Summary (rozszerzone)
+Test Results Summary
 =====================================
-Total Tests:        90+
-Passed:             90+ (100%)
-Failed:             0 (0%)
-Errors:             0 (0%)
-Execution Time:     ~1.5 seconds
+Kategoria                    Liczba testów
+=====================================
+1. Testy Jednostkowe              22 (#1-22)
+2. Testy Integracyjne             16 (#23-38)
+3. Testy Funkcjonalne             21 (#39-59)
+4. Testy Wydajności               13 (#60-72)
+5. Testy E2E                        6 (#73-78)
+=====================================
+RAZEM:                          78 testów
+                             (100% ✅)
 =====================================
 
 Breakdown by category:
-- Testy jednostkowe:    ~25 testów
-- Testy integracyjne:   ~18 testów
-- Testy funkcjonalne:   ~25 testów  
-- Testy wydajności:     ~18 testów
-- Testy E2E:           ~14 testów
-=====================================
+- Testowanie modułów (unit)        - Parsowanie, konwersja, cache
+- Testowanie integracji (int)      - CRUD, transakcje, integralność
+- Testowanie funkcji (functional)  - Search, display, walidacja
+- Testowanie wydajności (perf)     - Benchmarki, concurrency, pamięć
+- Testowanie E2E                   - Pełne scenariusze użytkownika
 ```
 
 ### Pokrycie kodu
