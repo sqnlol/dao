@@ -30,6 +30,19 @@ base_headers = {
     'Accept': 'application/json,text/javascript,*/*;q=0.9'
 }
 
+# Import loggera debugowania
+try:
+    from src.debug_logger import logger
+except ImportError:
+    # Fallback jeśli logger niedostępny
+    class _DummyLogger:
+        enabled = False
+        def http(self, *args, **kwargs): pass
+        def debug(self, *args, **kwargs): pass
+        def warning(self, *args, **kwargs): pass
+        def error(self, *args, **kwargs): pass
+    logger = _DummyLogger()
+
 # ------------------------------------------------------------------
 # POMOCNICZE: BEZPIECZNE GET Z BACKOFFEM (429/503)
 # ------------------------------------------------------------------
@@ -37,12 +50,27 @@ def _http_get_with_backoff(url, headers=None, params=None, timeout=30, max_retri
     """GET z backoffem dla 429/503 + losowy jitter; aktualizuje metrics['retries']."""
     sleep_time = initial_sleep
     attempt = 0
+    start_time = time.time()
+    
     while True:
         resp = requests.get(url, headers=headers, params=params, timeout=timeout)
+        duration = time.time() - start_time
+        
+        # Loguj request
+        if logger.enabled:
+            # Skróć URL dla czytelności
+            short_url = url.split('?')[0] if '?' in url else url
+            logger.http('GET', short_url, status=resp.status_code, duration=duration, attempt=attempt+1)
+        
         if resp.status_code not in (429, 503):
             return resp
+        
         jitter = random.uniform(0.0, 0.25)
         wait = sleep_time + jitter
+        
+        if logger.enabled:
+            logger.warning(f"Rate limited (HTTP {resp.status_code}), waiting {wait:.2f}s before retry...")
+        
         print(f"Ostrzeżenie: HTTP {resp.status_code} dla {url}. Odczekuję {wait:.2f}s i ponawiam...", file=sys.stderr)
         attempt += 1
         if metrics is not None:

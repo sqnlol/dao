@@ -1,6 +1,17 @@
 import sqlite3
 import os
 
+# Import loggera debugowania
+try:
+    from src.debug_logger import logger
+except ImportError:
+    class _DummyLogger:
+        enabled = False
+        def db(self, *args, **kwargs): pass
+        def debug(self, *args, **kwargs): pass
+        def error(self, *args, **kwargs): pass
+    logger = _DummyLogger()
+
 # Plik bazy danych będzie tworzony w katalogu głównym projektu (poza src/)
 DB_FILE = 'steam_market.db'
 
@@ -34,8 +45,14 @@ def init_db():
         """)
         conn.commit()
         conn.close()
+        
+        if logger.enabled:
+            logger.db("INIT", table="sales")
+        
         print("Baza danych zainicjalizowana pomyślnie.")
     except sqlite3.Error as e:
+        if logger.enabled:
+            logger.error(f"SQLite init error: {e}")
         print(f"Błąd SQLite podczas inicjalizacji: {e}")
 
 
@@ -67,6 +84,10 @@ def add_sales(sales_records):
             
     conn.commit()
     conn.close()
+    
+    if logger.enabled:
+        logger.db("INSERT", table="sales", rows=added_count, total_records=len(sales_records))
+    
     return added_count
 
 
@@ -83,4 +104,8 @@ def get_sales_for_item(market_hash_name):
     results = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
     conn.close()
+    
+    if logger.enabled:
+        logger.db("SELECT", table="sales", rows=len(results), item=market_hash_name[:40])
+    
     return results

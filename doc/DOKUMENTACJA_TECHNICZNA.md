@@ -18,6 +18,7 @@
 7. [Mechanizmy bezpieczeństwa i stabilności](#7-mechanizmy-bezpieczeństwa-i-stabilności)
 8. [Wymagania systemowe](#8-wymagania-systemowe)
 9. [Diagram przepływu danych](#9-diagram-przepływu-danych)
+10. [Testowanie i debugowanie](#10-testowanie-i-debugowanie)
 
 ---
 
@@ -1049,6 +1050,198 @@ python src/main.py
                     │   GUI       │
                     └─────────────┘
 ```
+
+---
+
+## 10. Testowanie i debugowanie
+
+### 10.1 Tryb debugowania
+
+Aplikacja posiada wbudowany **tryb debugowania** dostępny dla deweloperów i zaawansowanych użytkowników.
+
+#### Aktywacja
+
+| Skrót klawiszowy | Akcja |
+|------------------|-------|
+| `F5` | Włącz/wyłącz tryb debugowania |
+| `Shift+F5` | Otwórz konsolę debugowania |
+
+Po włączeniu trybu debugowania na dolnym pasku aplikacji pojawia się wskaźnik **"🔧 DEBUG MODE"**.
+
+#### Konsola debugowania
+
+Konsola debugowania (`src/gui/debug_console.py`) wyświetla logi w czasie rzeczywistym z podziałem na poziomy:
+
+| Poziom | Kolor | Opis |
+|--------|-------|------|
+| `DEBUG` | Niebieski | Szczegółowe informacje diagnostyczne |
+| `INFO` | Zielony | Ogólne informacje o operacjach |
+| `WARNING` | Żółty | Ostrzeżenia |
+| `ERROR` | Czerwony | Błędy |
+| `HTTP` | Fioletowy | Zapytania HTTP do Steam API |
+| `DB` | Cyjan | Operacje bazodanowe |
+| `PERF` | Pomarańczowy | Pomiary wydajności |
+
+#### Funkcje konsoli debugowania
+
+1. **Filtrowanie logów** - możliwość włączania/wyłączania poszczególnych poziomów
+2. **Panel statystyk** - wyświetla:
+   - Liczbę zapytań HTTP
+   - Liczbę błędów HTTP
+   - Liczbę zapytań do bazy danych
+   - Cache hit/miss ratio
+   - Użycie pamięci RAM
+   - Czas działania aplikacji
+3. **Eksport logów** - zapis do pliku `.txt`
+4. **Kopiowanie** - skopiowanie logów do schowka
+5. **Auto-scroll** - automatyczne przewijanie do najnowszych wpisów
+
+#### Architektura systemu logowania
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   DebugLogger (Singleton)                       │
+│                   src/debug_logger.py                           │
+│  - Centralny punkt logowania                                    │
+│  - Thread-safe callbacks                                        │
+│  - Historia logów                                               │
+│  - Statystyki                                                   │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Callbacks                                   │
+│  - DebugConsole._on_log() - wyświetlanie w GUI                 │
+│  - Możliwość dodania własnych callbacków                        │
+└─────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                Źródła logów (Modules)                           │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │steam_market │  │  database   │  │ search_view │             │
+│  │  (HTTP)     │  │   (DB)      │  │  (SEARCH)   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Przykład użycia loggera w kodzie
+
+```python
+from src.debug_logger import logger
+
+# Podstawowe logi
+logger.debug("Szczegółowa informacja")  
+logger.info("Operacja zakończona")
+logger.warning("Możliwy problem")
+logger.error("Wystąpił błąd")
+
+# Specjalistyczne logi
+logger.http("GET", url, status_code=200, duration=0.5)
+logger.db("INSERT", "sales", rows_affected=10)
+logger.perf("search_operation", duration=2.5)
+logger.cache("get_listings", hit=True)
+
+# Dekoratory
+@timed  # Automatycznie mierzy czas wykonania
+def my_function():
+    pass
+
+@traced  # Loguje wywołanie i argumenty
+def my_function(arg1, arg2):
+    pass
+```
+
+### 10.2 Testowanie jednostkowe
+
+Projekt wykorzystuje framework **pytest** do testów jednostkowych.
+
+#### Uruchamianie testów
+
+```bash
+# Wszystkie testy
+pytest
+
+# Testy z verbose output
+pytest -v
+
+# Testy konkretnego modułu
+pytest tests/test_steam_market.py
+
+# Testy z coverage
+pytest --cov=src --cov-report=html
+```
+
+#### Struktura testów
+
+```
+tests/
+├── test_database.py      # Testy operacji bazodanowych
+├── test_steam_market.py  # Testy API Steam (z mockami)
+├── test_debug_logger.py  # Testy systemu logowania
+└── conftest.py           # Fixtures pytest
+```
+
+#### Przykładowy test
+
+```python
+import pytest
+from unittest.mock import patch, MagicMock
+from src.steam_market import get_price_history
+
+@pytest.fixture
+def mock_response():
+    """Fixture z przykładową odpowiedzią Steam API."""
+    return {
+        "success": True,
+        "prices": [
+            ["Jan 01 2025 01: +0", 50.0, "100"]
+        ]
+    }
+
+@patch('src.steam_market.requests.get')
+def test_get_price_history(mock_get, mock_response):
+    """Test pobierania historii cen."""
+    mock_get.return_value = MagicMock(
+        status_code=200,
+        json=lambda: mock_response
+    )
+    
+    result = get_price_history("AK-47 | Redline", "fake_cookie")
+    
+    assert result is not None
+    assert len(result) == 1
+    assert result[0]['price'] == 50.0
+```
+
+### 10.3 Debugowanie w IDE
+
+#### VS Code - launch.json
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "CS2 Skin Analyzer",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/main.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
+```
+
+### 10.4 Znane problemy i rozwiązania
+
+| Problem | Przyczyna | Rozwiązanie |
+|---------|-----------|-------------|
+| Brak historii cen | Wygasłe cookie | Zaloguj się ponownie |
+| Timeout HTTP | Rate limiting Steam | Poczekaj 30s, spróbuj ponownie |
+| Pusta konsola debug | Debug mode wyłączony | Naciśnij F5 |
+| Brak autouzupełniania | Pusty suggestions.txt | Odśwież listę przedmiotów |
 
 ---
 

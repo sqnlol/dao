@@ -8,6 +8,7 @@ import importlib
 
 from src import steam_market
 from src import database
+from src.debug_logger import logger
 from src.skin_list import (
     SKIN_DATA, WEAPON_CATEGORIES,
     GLOVES, STICKERS, ZEUS_SKINS, GRAFFITI, AGENTS, CONTAINERS, OTHER_TYPES,
@@ -2549,20 +2550,41 @@ class SearchView:
     def _run_search_and_save(self, item_name, login_cookie):
         """Logika pobierania i zapisywania w wątku."""
         
+        # Debug logging
+        if logger.enabled:
+            logger.info(f"Starting search for: {item_name}")
+            logger.debug(f"Cookie present: {bool(login_cookie)}")
+        
+        search_start = time.time()
+        
         # 1. Pobieranie historii cen (tylko z cookie)
         try:
             if login_cookie:
+                if logger.enabled:
+                    logger.debug("Fetching price history...")
+                
                 history = steam_market.get_price_history(item_name, login_cookie)
+                
                 if history is None:
+                    if logger.enabled:
+                        logger.error(f"Price history API error for {item_name}")
                     self.controller.result_queue.put({'status': 'error', 'message': 'Błąd API podczas pobierania historii. Sprawdź konsolę.'})
                     return
                 if not history:
+                    if logger.enabled:
+                        logger.warning(f"No history data for {item_name}")
                     self.controller.result_queue.put({'status': 'log', 'message': f'Brak danych historycznych dla {item_name}.'})
                 else:
+                    if logger.enabled:
+                        logger.info(f"Fetched {len(history)} history records")
                     self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {len(history)} rekordów z API.'})
             else:
+                if logger.enabled:
+                    logger.debug("No cookie - skipping price history")
                 history = []
         except Exception as e:
+            if logger.enabled:
+                logger.exception(f"Critical error fetching history: {e}")
             print(f"Krytyczny błąd w wątku (historia): {e}", file=sys.stderr)
             self.controller.result_queue.put({'status': 'error', 'message': f'Wystąpił krytyczny błąd podczas pobierania historii: {e}'})
             return
@@ -2571,28 +2593,41 @@ class SearchView:
 
         # 2. Pobieranie aktualnych ofert (Listings)
         try:
+            if logger.enabled:
+                logger.debug("Fetching market listings...")
+            
             # Przekazujemy 'login_cookie'
             listings_data = steam_market.get_market_listings(item_name, login_cookie, count=10)
             
             if listings_data is None:
+                if logger.enabled:
+                    logger.warning("No listings data returned")
                 self.controller.result_queue.put({'status': 'log', 'message': 'Brak lub błąd pobierania aktualnych ofert rynkowych.'})
                 listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A"}
             else:
                 fetched = len(listings_data.get("listings", []))
                 total = listings_data.get("total_count", 0)
+                if logger.enabled:
+                    logger.info(f"Fetched {fetched}/{total} listings")
                 self.controller.result_queue.put({'status': 'log', 'message': f'Pobrano {fetched} z {total} ofert.'})
                 meta = listings_data.get('meta') or {}
                 pages = meta.get('pages_loaded')
                 retries = meta.get('retries')
                 if pages is not None or retries is not None:
+                    if logger.enabled:
+                        logger.debug(f"Listings meta: pages={pages}, retries={retries}")
                     self.controller.result_queue.put({'status': 'log', 'message': f'Metryki: Strony: {pages or 0} | Retry: {retries or 0}.'})
         except Exception as e:
+            if logger.enabled:
+                logger.exception(f"Critical error fetching listings: {e}")
             print(f"Krytyczny błąd w wątku (oferty): {e}", file=sys.stderr)
             listings_data = {'listings': [], 'total_count': 0, 'lowest_price': "N/A", 'highest_buy_order': "N/A"}
 
         # 3. Zapisywanie i przekazywanie danych
         try:
             parsed_name_parts = steam_market.parse_market_name(item_name)
+            if logger.enabled:
+                logger.debug(f"Parsed name: type={parsed_name_parts['type']}, name={parsed_name_parts['name']}, wear={parsed_name_parts['wear']}")
 
             records_to_save = []
             for entry in history:
@@ -2608,11 +2643,17 @@ class SearchView:
                 
             added_count = database.add_sales(records_to_save) if records_to_save else 0
             if added_count:
+                if logger.enabled:
+                    logger.info(f"Saved {added_count} new records to database")
                 self.controller.result_queue.put({'status': 'log', 'message': f'Zapisano {added_count} nowych unikalnych rekordów w bazie.'})
 
             all_db_records = database.get_sales_for_item(item_name)
             
-            # --- USUNIĘTO BŁĘDNE SORTOWANIE STĄD ---
+            # Oblicz czas całkowity
+            total_time = time.time() - search_start
+            if logger.enabled:
+                logger.perf(f"Search '{item_name[:30]}...'", total_time)
+                logger.info(f"Search complete: {len(all_db_records)} total records in DB")
             
             self.controller.result_queue.put({
                 'status': 'success',
@@ -2624,5 +2665,7 @@ class SearchView:
             })
             
         except Exception as e:
+            if logger.enabled:
+                logger.exception(f"Critical error saving/passing data: {e}")
             print(f"Krytyczny błąd w wątku (zapis/przekazanie): {e}", file=sys.stderr)
             self.controller.result_queue.put({'status': 'error', 'message': f'Wystąpił krytyczny błąd: {e}'})

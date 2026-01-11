@@ -6,6 +6,7 @@ import os
 import threading 
 
 from src import resource_paths
+from src.debug_logger import logger
 
 # --- POPRAWIONE IMPORTY ---
 # Musimy odwoływać się z poziomu 'src'
@@ -14,6 +15,7 @@ from src.gui.search_view import SearchView
 from src.gui.results_view import ResultsView
 from src.gui.cases_view import CasesView
 from src.gui.case_detail_view import CaseDetailView
+from src.gui.debug_console import DebugManager
 from src import steam_market
 # --- KONIEC POPRAWEK ---
 
@@ -102,6 +104,11 @@ class MarketApp:
         self._auto_max_s = 900
         self._auto_after_id = None
         self._next_auto_refresh_ts = None
+        
+        # --- Debug Mode ---
+        self._debug_manager = DebugManager(self)
+        self.root.bind('<F5>', self._toggle_debug_mode)
+        self.root.bind('<Shift-F5>', self._show_debug_console)
         
         # --- Start aplikacji ---
         # Autologin jeśli pamiętany użytkownik (wczytuje też ustawienia interwału)
@@ -736,6 +743,32 @@ class MarketApp:
         if "search" in self.views and hasattr(self.views["search"], 'set_suggestions'):
             self.views["search"].set_suggestions(self.all_suggestions)
             self.views["search"].log_message(f"Autouzupełnianie gotowe ({len(self.all_suggestions)} przedmiotów).")
+
+    # ------------------------------------------------------------------
+    # DEBUG MODE
+    # ------------------------------------------------------------------
+    def _toggle_debug_mode(self, event=None):
+        """Przełącza tryb debugowania (F5)."""
+        self._debug_manager.toggle()
+        
+        # Loguj informacje o stanie aplikacji
+        if self._debug_manager.enabled:
+            logger.info(f"Current view: {self.current_view}")
+            logger.info(f"Views loaded: {list(self.views.keys())}")
+            logger.info(f"Suggestions count: {len(self.all_suggestions)}")
+            logger.info(f"Auto-refresh enabled: {self._auto_enabled}")
+            if self._auto_enabled:
+                logger.info(f"Auto-refresh interval: {self._auto_min_s}-{self._auto_max_s}s")
+    
+    def _show_debug_console(self, event=None):
+        """Pokazuje konsolę debugowania (Shift+F5)."""
+        if self._debug_manager.enabled:
+            self._debug_manager.show_console()
+    
+    @property
+    def debug_enabled(self) -> bool:
+        """Sprawdza czy tryb debugowania jest włączony."""
+        return self._debug_manager.enabled
 
     # ------------------------------------------------------------------
     # GŁÓWNA PĘTLA
