@@ -108,7 +108,6 @@ class MarketApp:
         # --- Debug Mode ---
         self._debug_manager = DebugManager(self)
         self.root.bind('<F5>', self._toggle_debug_mode)
-        self.root.bind('<Shift-F5>', self._show_debug_console)
         
         # --- Start aplikacji ---
         # Autologin jeśli pamiętany użytkownik (wczytuje też ustawienia interwału)
@@ -759,11 +758,6 @@ class MarketApp:
             logger.info(f"Auto-refresh enabled: {self._auto_enabled}")
             if self._auto_enabled:
                 logger.info(f"Auto-refresh interval: {self._auto_min_s}-{self._auto_max_s}s")
-    
-    def _show_debug_console(self, event=None):
-        """Pokazuje konsolę debugowania (Shift+F5)."""
-        if self._debug_manager.enabled:
-            self._debug_manager.show_console()
     
     @property
     def debug_enabled(self) -> bool:
