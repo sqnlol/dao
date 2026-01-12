@@ -90,6 +90,52 @@ Konsola (`src/gui/debug_console.py`) wyświetla logi w czasie rzeczywistym:
 | `DB` | Cyjan | Operacje bazodanowe |
 | `PERF` | Pomarańczowy | Pomiary wydajności |
 
+### Co jest logowane w każdej kategorii
+
+#### DEBUG (Niebieski)
+Szczegółowe informacje diagnostyczne:
+- Obecność cookie: `Cookie present: True/False`
+- Etapy pobierania: `Fetching price history...`, `Fetching market listings...`
+- Metadane listings: `Listings meta: pages=X, retries=Y`
+- Parsowanie nazwy: `Parsed name: type=AK-47, name=Redline, wear=Field-Tested`
+- Pomijanie operacji: `No cookie - skipping price history`
+
+#### INFO (Zielony)
+Ogólne informacje o operacjach:
+- Start/koniec wyszukiwania: `Starting search for: AK-47 | Redline`
+- Pobrane rekordy: `Fetched 150 history records`, `Fetched 10/100 listings`
+- Zapis do bazy: `Saved 50 new records to database`
+- Podsumowania: `Search complete: 200 total records in DB`
+- Status debug mode: `=== DEBUG MODE ENABLED ===`
+- Informacje o sesji: `User: SteamUser`, `Currency: PLN`
+- Operacje konsoli: `Logi skopiowane do schowka`, `Logi wyeksportowane do: ...`
+
+#### WARNING (Żółty)
+Ostrzeżenia o potencjalnych problemach:
+- Brak danych: `No history data for item`, `No listings data returned`
+- Rate limiting: `Rate limited (HTTP 429), waiting 2.5s before retry...`
+
+#### ERROR (Czerwony)
+Błędy wymagające uwagi:
+- Błędy API: `Price history API error for AK-47 | Redline`
+- Błędy bazy: `SQLite init error: ...`
+- Błędy operacji: `Błąd kopiowania logów: ...`, `Błąd eksportu logów: ...`
+
+#### HTTP (Fioletowy)
+Zapytania do Steam API:
+- Format: `GET /market/listings/... [200] 0.45s (attempt 1)`
+- Zawiera: metodę, URL (skrócony), status HTTP, czas, próbę
+
+#### DB (Cyjan)
+Operacje bazodanowe:
+- Inicjalizacja: `INIT table=sales`
+- Insert: `INSERT table=sales rows=50 total_records=100`
+- Select: `SELECT table=sales rows=150 item=AK-47 | Redline...`
+
+#### PERF (Pomarańczowy)
+Pomiary wydajności:
+- Czas wyszukiwania: `Search 'AK-47 | Redline...' 2.34s`
+
 ### Funkcje konsoli
 
 - **Filtrowanie** - włączanie/wyłączanie poziomów logów
@@ -1956,7 +2002,7 @@ def test_chart_data_preparation(self):
 
 #### TestErrorHandling
 
-(Wszystkie testy ErrorHandling opisane wcześniej)
+(Testy obsługi błędów - zobacz [Test #6: test_api_timeout_handling](#test-6-test_api_timeout_handling))
 
 ---
 
@@ -2045,13 +2091,13 @@ def test_price_range_validation(self):
 
 #### TestUserWorkflows
 
-(Już opisane wcześniej)
+(Zobacz [Test #7: test_search_filter_sort_workflow](#test-7-test_search_filter_sort_workflow))
 
 ---
 
 #### TestCurrencyHandling
 
-(Już opisane wcześniej)
+(Zobacz [Test #12: test_steam_price_conversion](#test-12-test_steam_price_conversion))
 
 ---
 
@@ -2092,7 +2138,7 @@ def test_convert_100_prices_speed(self):
 
 #### TestDatabasePerformance
 
-(Już opisane wcześniej: insert, query)
+(Zobacz [Test #9: test_insert_100_records_speed](#test-9-test_insert_100_records_speed))
 
 ---
 
@@ -2317,13 +2363,13 @@ def test_string_parsing_memory(self):
 
 #### TestEndToEndWorkflows
 
-(Już opisane wcześniej: complete_search_to_display_flow, multiple_items_comparison_flow, price_history_analysis_flow)
+(Zobacz [Test #10: test_complete_search_to_display_flow](#test-10-test_complete_search_to_display_flow))
 
 ---
 
 #### TestCompleteUserJourney
 
-(Już opisane wcześniej: new_user_first_search, user_with_login_flow, batch_analysis_workflow)
+(Zobacz [Test #11: test_new_user_first_search](#test-11-test_new_user_first_search))
 
 ---
 
