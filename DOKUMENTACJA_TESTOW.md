@@ -2002,7 +2002,7 @@ def test_chart_data_preparation(self):
 
 #### TestErrorHandling
 
-(Testy obsługi błędów - zobacz [Test #6: test_api_timeout_handling](#test-6-test_api_timeout_handling))
+(Testy obsługi błędów - zobacz [3. Testy Funkcjonalne - Obsługa błędów](#3-testy-funkcjonalne---obsługa-błędów))
 
 ---
 
@@ -2091,13 +2091,13 @@ def test_price_range_validation(self):
 
 #### TestUserWorkflows
 
-(Zobacz [Test #7: test_search_filter_sort_workflow](#test-7-test_search_filter_sort_workflow))
+(Zobacz [3. Testy Funkcjonalne - Obsługa błędów](#3-testy-funkcjonalne---obsługa-błędów))
 
 ---
 
 #### TestCurrencyHandling
 
-(Zobacz [Test #12: test_steam_price_conversion](#test-12-test_steam_price_conversion))
+(Zobacz [6. Test konwersji cen ze Steam](#6-test-konwersji-cen-ze-steam))
 
 ---
 
@@ -2138,7 +2138,7 @@ def test_convert_100_prices_speed(self):
 
 #### TestDatabasePerformance
 
-(Zobacz [Test #9: test_insert_100_records_speed](#test-9-test_insert_100_records_speed))
+(Zobacz [4. Testy Wydajności - Benchmarki](#4-testy-wydajności---benchmarki))
 
 ---
 
@@ -2363,13 +2363,13 @@ def test_string_parsing_memory(self):
 
 #### TestEndToEndWorkflows
 
-(Zobacz [Test #10: test_complete_search_to_display_flow](#test-10-test_complete_search_to_display_flow))
+(Zobacz [5. Testy End-to-End - Kompletne scenariusze](#5-testy-end-to-end---kompletne-scenariusze))
 
 ---
 
 #### TestCompleteUserJourney
 
-(Zobacz [Test #11: test_new_user_first_search](#test-11-test_new_user_first_search))
+(Zobacz [5. Testy End-to-End - Kompletne scenariusze](#5-testy-end-to-end---kompletne-scenariusze))
 
 ---
 
