@@ -4,8 +4,9 @@
 1. [Przegląd](#przegląd)
 2. [Struktura testów](#struktura-testów)
 3. [Uruchamianie testów](#uruchamianie-testów)
-4. [Najważniejsze testy z przykładami kodu](#najważniejsze-testy-z-przykładami-kodu)
-5. [Pełna lista testów](#pełna-lista-testów)
+4. [Tryb debugowania](#tryb-debugowania)
+5. [Najważniejsze testy z przykładami kodu](#najważniejsze-testy-z-przykładami-kodu)
+6. [Pełna lista testów](#pełna-lista-testów)
 
 ## Przegląd
 
@@ -61,6 +62,65 @@ python -m pytest tests/test_unit.py::TestParseMarketName -v
 **Uruchomienie z coverage:**
 ```bash
 python -m pytest tests/ --cov=src --cov-report=html
+```
+
+## Tryb debugowania
+
+Aplikacja posiada wbudowany **tryb debugowania** ułatwiający testowanie i diagnozowanie problemów.
+
+### Aktywacja
+
+| Skrót | Akcja |
+|-------|-------|
+| `F5` | Włącz/wyłącz tryb debugowania (otwiera konsolę) |
+
+Po aktywacji na dolnym pasku aplikacji pojawia się wskaźnik **"🔧 DEBUG MODE"**.
+
+### Konsola debugowania
+
+Konsola (`src/gui/debug_console.py`) wyświetla logi w czasie rzeczywistym:
+
+| Poziom | Kolor | Zastosowanie |
+|--------|-------|---------------|
+| `DEBUG` | Niebieski | Szczegółowe informacje diagnostyczne |
+| `INFO` | Zielony | Ogólne informacje o operacjach |
+| `WARNING` | Żółty | Ostrzeżenia |
+| `ERROR` | Czerwony | Błędy |
+| `HTTP` | Fioletowy | Zapytania do Steam API |
+| `DB` | Cyjan | Operacje bazodanowe |
+| `PERF` | Pomarańczowy | Pomiary wydajności |
+
+### Funkcje konsoli
+
+- **Filtrowanie** - włączanie/wyłączanie poziomów logów
+- **Panel statystyk** - HTTP requests, DB queries, cache hit/miss, pamięć RAM, uptime
+- **Eksport** - zapis logów do pliku `.txt`
+- **Kopiowanie** - kopiowanie do schowka
+- **Auto-scroll** - automatyczne przewijanie
+
+### Użycie loggera w testach
+
+```python
+from src.debug_logger import logger
+
+# Podstawowe logi
+logger.debug("Szczegółowa informacja")  
+logger.info("Operacja zakończona")
+logger.error("Wystąpił błąd")
+
+# Specjalistyczne logi
+logger.http("GET", url, status_code=200, duration=0.5)
+logger.db("INSERT", "sales", rows_affected=10)
+logger.perf("search_operation", duration=2.5)
+```
+
+### Architektura
+
+```
+src/
+├── debug_logger.py      # Singleton logger z callbackami
+└── gui/
+    └── debug_console.py # Okno konsoli debugowania
 ```
 
 ## Opisy wszystkich testów
