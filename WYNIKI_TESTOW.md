@@ -2,7 +2,7 @@
 
 ## Podsumowanie Wykonania
 
-**Data:** 2024
+**Data:** 2026
 **Python Version:** 3.13.4
 **Pytest Version:** 9.0.2
 **Platforma:** Windows 11
@@ -164,6 +164,17 @@ tests/test_performance.py::TestConcurrentOperations::test_concurrent_writes     
 - add_sales() - testowanie CRUD i duplikatów
 - get_sales_for_item() - testowanie pobierania danych
 
+✅ **src/debug_logger.py** (NOWY)
+- DebugLogger singleton - centralne logowanie
+- LogLevel enum - poziomy logów
+- Dekoratory @timed, @traced
+- Thread-safe callbacks
+
+✅ **src/gui/debug_console.py** (NOWY)
+- DebugConsole - okno konsoli
+- DebugManager - zarządzanie trybem debug
+- Filtrowanie i eksport logów
+
 ✅ **Obsługa błędów**
 - requests.Timeout
 - requests.ConnectionError
@@ -191,8 +202,15 @@ tests/test_performance.py::TestConcurrentOperations::test_concurrent_writes     
 1. 📌 Dodać testy GUI (integracja Tkinter)
 2. 📌 Mockować pobieranie obrazów case'ów
 3. 📌 Testować real API (separat dev environment)
-4. 📌 Dodać testy dla `fetch_all_csgo_items()` z mocking'iem
+4. 📌 Dodać testy dla `fetch_all_csgo_items()` z mocking'iem5. ✅ Dodano tryb debugowania (F5) - logi w czasie rzeczywistym
 
+### Tryb debugowania
+
+Aplikacja posiada wbudowany debugger aktywowany klawiszem **F5**:
+- Konsola z logami w czasie rzeczywistym
+- Poziomy: DEBUG, INFO, WARNING, ERROR, HTTP, DB, PERF
+- Panel statystyk (HTTP requests, DB queries, pamięć)
+- Eksport logów do pliku
 ### Metryki Sukcesu
 - ✅ 100% testów przeszło
 - ✅ Średni czas wykonania <1s
