@@ -1063,8 +1063,7 @@ Aplikacja posiada wbudowany **tryb debugowania** dostępny dla deweloperów i za
 
 | Skrót klawiszowy | Akcja |
 |------------------|-------|
-| `F5` | Włącz/wyłącz tryb debugowania |
-| `Shift+F5` | Otwórz konsolę debugowania |
+| `F5` | Włącz/wyłącz tryb debugowania (otwiera konsolę) |
 
 Po włączeniu trybu debugowania na dolnym pasku aplikacji pojawia się wskaźnik **"🔧 DEBUG MODE"**.
 
